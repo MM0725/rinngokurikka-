@@ -1,12 +1,334 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <title>テストページ</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>p5.js 2D シューティングゲーム</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.sound.min.js"></script>
+  <style>
+    html,body { margin:0; padding:0; height:100%; background:#081426; color:#fff; font-family:system-ui, -apple-system, "Helvetica Neue", Arial; }
+    #defaultCanvas0 { display:block; margin:0 auto; }
+    .hint { text-align:center; font-size:14px; opacity:0.9; margin-top:6px }
+  </style>
 </head>
 <body>
-    <h1>Hello GitHub!</h1>
-    <img src="images
-/art_download.png" alt="Example Image">
+  <script>
+// ----------------------
+// p5.js 2D シューティングゲーム
+// Controls:
+// ← / → or A / D : 移動
+// SPACE or click/tap : 発射
+// P : ポーズ
+// R : リスタート
+// ----------------------
+
+let player;
+let bullets = [];
+let enemies = [];
+let enemyBullets = [];
+let explosions = [];
+let score = 0;
+let lives = 3;
+let level = 1;
+let spawnTimer = 0;
+let paused = false;
+let gameOver = false;
+
+function setup(){
+  createCanvas(800, 600);
+  player = new Player(width/2, height - 60);
+  textFont('Helvetica');
+  resetGame();
+}
+
+function resetGame(){
+  bullets = [];
+  enemies = [];
+  enemyBullets = [];
+  explosions = [];
+  score = 0;
+  lives = 3;
+  level = 1;
+  spawnTimer = 0;
+  paused = false;
+  gameOver = false;
+  spawnWave(level);
+}
+
+function draw(){
+  background(8,20,38);
+
+  if(paused){
+    drawGame();
+    fill(255,255,255,220);
+    textAlign(CENTER, CENTER);
+    textSize(36);
+    text('PAUSED', width/2, height/2);
+    return;
+  }
+
+  if(gameOver){
+    drawGame();
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(44);
+    text('GAME OVER', width/2, height/2 - 40);
+    textSize(20);
+    text('R でリスタート', width/2, height/2 + 10);
+    return;
+  }
+
+  // spawn enemies gradually
+  spawnTimer += deltaTime/1000;
+  if(spawnTimer > max(1.0 - level*0.05, 0.35)){
+    spawnTimer = 0;
+    // small chance to add a fast enemy
+    if(random() < 0.25) enemies.push(new Enemy(random(40, width-40), -30, level, true));
+    else enemies.push(new Enemy(random(40, width-40), -30, level, false));
+  }
+
+  updateGame();
+  drawGame();
+
+  // level up condition
+  if(score > level * 200){
+    levelUp();
+  }
+}
+
+function updateGame(){
+  player.update();
+
+  for(let b of bullets) b.update();
+  for(let e of enemies) e.update();
+  for(let b of enemyBullets) b.update();
+  for(let ex of explosions) ex.update();
+
+  // collisions: bullets vs enemies
+  for(let i = bullets.length-1; i>=0; i--){
+    let b = bullets[i];
+    for(let j = enemies.length-1; j>=0; j--){
+      let e = enemies[j];
+      if(collideRectCircle(e.x - e.w/2, e.y - e.h/2, e.w, e.h, b.x, b.y, b.r*2)){
+        // hit
+        bullets.splice(i,1);
+        e.health -= 1;
+        explosions.push(new Explosion(b.x, b.y));
+        if(e.health <= 0){
+          score += e.scoreValue;
+          explosions.push(new Explosion(e.x, e.y, true));
+          enemies.splice(j,1);
+        }
+        break;
+      }
+    }
+  }
+
+  // enemy bullets vs player
+  for(let i = enemyBullets.length-1; i>=0; i--){
+    let eb = enemyBullets[i];
+    if(dist(eb.x, eb.y, player.x, player.y) < eb.r + player.r){
+      enemyBullets.splice(i,1);
+      hitPlayer();
+      explosions.push(new Explosion(player.x, player.y));
+    }
+  }
+
+  // enemies vs player
+  for(let i = enemies.length-1; i>=0; i--){
+    let e = enemies[i];
+    if(dist(e.x, e.y, player.x, player.y) < e.w/2 + player.r){
+      enemies.splice(i,1);
+      hitPlayer();
+      explosions.push(new Explosion(player.x, player.y, true));
+    }
+  }
+
+  // remove offscreen bullets
+  bullets = bullets.filter(b => b.y > -10);
+  enemyBullets = enemyBullets.filter(b => b.y < height + 10);
+
+  // cleanup explosions
+  explosions = explosions.filter(ex => !ex.done);
+}
+
+function drawGame(){
+  // star background
+  push();
+  for(let i=0;i<120;i++){
+    stroke(255,255,255,30);
+    point((i * 37) % width, (i * 73) % height);
+  }
+  pop();
+
+  // HUD
+  fill(255);
+  textSize(16);
+  textAlign(LEFT, TOP);
+  text('SCORE: ' + score, 10, 10);
+  text('LIVES: ' + lives, 10, 30);
+  text('LEVEL: ' + level, 10, 50);
+
+  player.show();
+  for(let b of bullets) b.show();
+  for(let e of enemies) e.show();
+  for(let b of enemyBullets) b.show();
+  for(let ex of explosions) ex.show();
+}
+
+function levelUp(){
+  level++;
+  spawnWave(level);
+  // small bonus
+  score += 50;
+}
+
+function spawnWave(lvl){
+  let count = min(6 + lvl * 2, 30);
+  for(let i=0;i<count;i++){
+    let x = random(40, width-40);
+    let y = random(-400, -40);
+    enemies.push(new Enemy(x, y, lvl, random()<0.2));
+  }
+}
+
+function hitPlayer(){
+  lives -= 1;
+  if(lives <= 0){
+    gameOver = true;
+  }
+}
+
+// ------------------ Classes ------------------
+class Player{
+  constructor(x,y){
+    this.x = x; this.y = y; this.r = 18; this.speed = 6; this.cooldown = 0; this.coolMax = 0.18; this.color = color(80,200,255);
+  }
+  update(){
+    if(keyIsDown(LEFT_ARROW) || keyIsDown(65)) this.x -= this.speed;
+    if(keyIsDown(RIGHT_ARROW)|| keyIsDown(68)) this.x += this.speed;
+    this.x = constrain(this.x, 20, width-20);
+    if(this.cooldown > 0) this.cooldown -= deltaTime/1000;
+  }
+  show(){
+    push();
+    translate(this.x, this.y);
+    noStroke();
+    fill(this.color);
+    // simple ship
+    triangle(-18,12, 18,12, 0,-20);
+    rectMode(CENTER);
+    fill(200);
+    rect(0, 16, 36, 8, 4);
+    pop();
+  }
+  shoot(){
+    if(this.cooldown <= 0){
+      bullets.push(new Bullet(this.x, this.y - 22, -8));
+      this.cooldown = this.coolMax;
+    }
+  }
+}
+
+class Bullet{
+  constructor(x,y,vy){ this.x = x; this.y = y; this.vy = vy; this.r = 5; }
+  update(){ this.y += this.vy; }
+  show(){ push(); noStroke(); fill(255,230,80); ellipse(this.x, this.y, this.r*2); pop(); }
+}
+
+class Enemy{
+  constructor(x,y,level,fast=false){
+    this.x = x; this.y = y; this.level = level; this.w = 32; this.h = 28; this.speed = random(0.6,1.2) + level*0.05 + (fast?1.2:0);
+    this.health = fast ? 1 + floor(level/2) : 1 + floor(level/3);
+    this.scoreValue = 10 + level*5 + (fast?20:0);
+    this.cooldown = random(0.5, 2.0);
+    this.fast = fast;
+    this.color = fast ? color(255,120,100) : color(200,80,200);
+  }
+  update(){
+    this.y += this.speed * (deltaTime/16);
+    // slight horizontal wobble
+    this.x += sin((this.y + frameCount*0.5)/40) * 0.6;
+    this.cooldown -= deltaTime/1000;
+    if(this.cooldown <= 0){
+      this.cooldown = random(0.6, 2.0) / (this.fast?1.6:1);
+      enemyBullets.push(new EnemyBullet(this.x, this.y + this.h/2, 3 + this.level*0.1 + (this.fast?1:0)));
+    }
+    // offscreen removal
+    if(this.y > height + 60) this.y = -random(60, 300); // recycle for continuous action
+  }
+  show(){
+    push(); translate(this.x, this.y); rectMode(CENTER); noStroke(); fill(this.color);
+    // simple enemy shape
+    beginShape();
+    vertex(-this.w/2, this.h/2);
+    vertex(-this.w/4, -this.h/2);
+    vertex(this.w/4, -this.h/2);
+    vertex(this.w/2, this.h/2);
+    endShape(CLOSE);
+    // eyes
+    fill(20);
+    ellipse(-6, -2, 6,6);
+    ellipse(6, -2, 6,6);
+    pop();
+  }
+}
+
+class EnemyBullet{
+  constructor(x,y,vy){ this.x = x; this.y = y; this.vy = vy; this.r = 6; }
+  update(){ this.y += this.vy; }
+  show(){ push(); noStroke(); fill(255,80,80); ellipse(this.x, this.y, this.r*2); pop(); }
+}
+
+class Explosion{
+  constructor(x,y,big=false){ this.x=x; this.y=y; this.timer=0; this.max=big?40:20; this.done=false; }
+  update(){ this.timer++; if(this.timer > this.max) this.done = true; }
+  show(){ push(); noStroke(); let t = this.timer/this.max; fill(255, 200*(1-t), 60, 255*(1-t)); ellipse(this.x, this.y, t*this.max*3); pop(); }
+}
+
+// ------------------ Input ------------------
+function keyPressed(){
+  if(key === ' '){ player.shoot(); }
+  if(key === 'P' || key === 'p'){ paused = !paused; }
+  if(key === 'R' || key === 'r'){ resetGame(); }
+}
+
+function mousePressed(){
+  if(!gameOver && !paused) player.shoot();
+}
+
+// touch for mobile: move to touch x and shoot when tap
+function touchStarted(){
+  // prevent multiple mouse events
+  if(touches && touches.length > 0){
+    let t = touches[0];
+    player.x = constrain(t.x, 20, width-20);
+    player.shoot();
+  }
+  return false;
+}
+
+// ------------------ Utilities ------------------
+// simple rect-circle collision
+function collideRectCircle(rx, ry, rw, rh, cx, cy, diameter){
+  let radius = diameter/2;
+  // find closest point to circle within rectangle
+  let closestX = constrain(cx, rx, rx+rw);
+  let closestY = constrain(cy, ry, ry+rh);
+  // calculate distance
+  let distanceX = cx - closestX;
+  let distanceY = cy - closestY;
+  let distanceSquared = (distanceX*distanceX) + (distanceY*distanceY);
+  return distanceSquared < (radius*radius);
+}
+
+// clamp helper
+function min(a,b){ return a<b?a:b; }
+function max(a,b){ return a>b?a:b; }
+
+  </script>
+
+  <div class="hint">Controls: ←/→ or A/D to move, SPACE or click/tap to shoot, P to pause, R to restart</div>
 </body>
 </html>
