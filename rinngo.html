@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - 木下げ＆リンゴ上げ版</title>
+<title>リンゴの木クリッカー - 木位置＆リンゴ調整版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <style>
 html,body { margin:0; padding:0; height:100%; background:#87CEEB; overflow:hidden; }
@@ -68,6 +68,7 @@ let sellAmountPrice=100;
 let treeImg;
 let treeX, treeY;
 let maxTreeW=600;
+let displayH;
 
 function disableActionButtons(flag){ document.querySelectorAll('#actions button').forEach(btn => btn.disabled=flag); }
 function preload(){ treeImg = loadImage('images/wood.png'); }
@@ -78,7 +79,9 @@ function setup(){
   stallX = width*0.82;
   stallY = groundY - 20;
   treeX = width*0.28;
-  treeY = groundY - 50 + 34*4 + 34*3; // 木をさらに3個分下げ
+  treeY = groundY - 200; // 木を下げる（groundYからのオフセット）
+  if(treeImg) displayH = maxTreeW * (treeImg.height/treeImg.width);
+
   for(let i=0;i<14;i++) spawnAppleOnTree();
 
   document.getElementById('hireBtn').addEventListener('click',hireEmployee);
@@ -101,7 +104,7 @@ function windowResized(){
   stallX = width*0.82;
   stallY = groundY - 20;
   treeX = width*0.28;
-  treeY = groundY - 50 + 34*4 + 34*3;
+  treeY = groundY - 200;
 }
 
 function draw(){
@@ -115,10 +118,9 @@ function drawGround(){ fill(90,60,40); rect(0,groundY,width,height-groundY); }
 function drawTree(){
   if(treeImg){
     imageMode(CENTER);
-    let aspect = treeImg.height / treeImg.width;
     let displayW = maxTreeW;
-    let displayH = displayW * aspect;
-    image(treeImg, treeX, treeY - displayH/2 + (groundY-treeY)/2, displayW, displayH);
+    displayH = displayW * (treeImg.height/treeImg.width);
+    image(treeImg, treeX, treeY, displayW, displayH);
   }
 }
 
@@ -139,12 +141,12 @@ function spawnAppleOnTree(){
   if(p<tierBase.red) tier=0;
   else if(p<tierBase.red+tierBase.yellow) tier=1;
   else tier=2;
-  let rx=random(-maxTreeW*0.3, maxTreeW*0.3);
-  let ry=random(-maxTreeW*0.6 - 34*5, -50); // リンゴ生成範囲を木上端から5個分上げ
+  let rx = random(-maxTreeW*0.3, maxTreeW*0.3);
+  let ry = random(-displayH*0.6 - 34*5, -displayH*0.1); // 木上端よりリンゴ5個分上
   apples.push({x:treeX+rx, y:treeY+ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
 }
 
-// ─── NPC・UI関数は以前の統合版と同じ ───────────────
+// ─── NPC・UI・アップグレード・販売ロジックは以前の統合版と同じ ───────────────
 </script>
 </body>
 </html>
