@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - 木3倍・調整版</title>
+<title>リンゴの木クリッカー - 木下げ版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <style>
 html,body { margin:0; padding:0; height:100%; background:#87CEEB; overflow:hidden; }
@@ -81,7 +81,7 @@ function setup(){
   stallX = width*0.82;
   stallY = groundY - 20;
   treeX = width*0.28;
-  treeY = groundY - 50; // 木を下に移動
+  treeY = groundY - 50 + 34*4; // 木をリンゴ4個分下げる
   for(let i=0;i<14;i++) spawnAppleOnTree();
 
   document.getElementById('hireBtn').addEventListener('click',hireEmployee);
@@ -104,7 +104,7 @@ function windowResized(){
   stallX = width*0.82;
   stallY = groundY - 20;
   treeX = width*0.28;
-  treeY = groundY - 50;
+  treeY = groundY - 50 + 34*4; // 再調整
 }
 
 function draw(){
@@ -142,12 +142,12 @@ function spawnAppleOnTree(){
   if(p<tierBase.red) tier=0;
   else if(p<tierBase.red+tierBase.yellow) tier=1;
   else tier=2;
-  let rx=random(-maxTreeW*0.3, maxTreeW*0.3); // 幅30%に縮小
-  let ry=random(-maxTreeW*0.6, -50); // 高さも小さめ
+  let rx=random(-maxTreeW*0.3, maxTreeW*0.3);
+  let ry=random(-maxTreeW*0.6, -50);
   apples.push({x:treeX+rx, y:treeY+ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
 }
 
-// ─── 以下NPC・UI関数は統合版と同じ ───────────────
+// ─── NPC・UI関数は以前の統合版と同じ ───────────────
 function mousePressed(){ for(let a of apples){ if(a.state==='onTree'&&dist(mouseX,mouseY,a.x,a.y)<22){ a.state='falling'; a.vy=0; a.vx=random(-0.6,0.6); a.bounced=false; setTimeout(spawnAppleOnTree,200+random(0,300)); break; } } }
 function updatePhysics(){ for(let a of apples){ if(a.state==='falling'){ a.vy+=0.8; a.y+=a.vy; a.x+=a.vx; if(!a.bounced && a.y>=groundY-17){ a.bounced=true; a.vy=-10; a.y=groundY-17; } else if(a.bounced && a.y>=groundY-17){ a.state='onGround'; a.vy=0; a.vx=0; } } } }
 function hireEmployee(){ let price=Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire)); if(money>=price){ money-=price; upgradeCounts.hire++; if(skipNameInput) createNPC(`NPC${hiredCount+1}`); else{ pendingHire=true; disableActionButtons(true); document.getElementById('nameModal').style.display='block'; document.getElementById('npcNameInput').value=''; } updateUI(); } }
