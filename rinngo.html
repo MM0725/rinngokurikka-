@@ -2,19 +2,22 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - 効果音統合版（雲付き）</title>
+<title>リンゴの木クリッカー - 動画背景版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.sound.min.js"></script>
 <style>
-html,body { margin:0; padding:0; height:100%; background:#87CEEB; overflow:hidden; }
+html,body { margin:0; padding:0; height:100%; overflow:hidden; }
 canvas { display:block; }
+
 #ui { position:absolute; left:12px; top:10px; color:#fff; font-family:sans-serif; text-shadow:0 0 6px #0008; z-index:20; }
 #counts { font-size:20px; }
 #money { position:absolute; top:10px; right:10px; font-size:24px; font-weight:bold; color:#fff; text-shadow:0 0 6px #0008; z-index:20; }
 #money span { margin-left:8px; }
 #actions { position:absolute; top:60px; right:10px; z-index:20; text-align:right; }
 #actions button { background:#333; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; margin-bottom:6px; display:block; width:250px; font-size:16px; }
+
 #skipSwitch { position:absolute; top:10px; right:280px; color:#fff; font-size:14px; z-index:25; }
+
 #nameModal { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#222; color:#fff; padding:20px; border-radius:10px; z-index:30; }
 #nameModal input { width:200px; padding:5px; margin-top:10px; font-size:16px; }
 #nameModal button { padding:5px 10px; margin-top:10px; }
@@ -54,12 +57,10 @@ let sellInterval=2000, sellAmountPerTick=1, sellProfitMult=1;
 let profitEffects=[];
 let tierBoost=0;
 
-// 雲
-let clouds = [];
+// ★動画背景
+let cloudVideo;
 
-// ★販売効果音
 let sellSound;
-
 let bgm;
 let clickSound, appleSound;
 
@@ -75,6 +76,7 @@ let basePrices={tier:100,hire:100,speed:100,profit:100,npcSpeed:100,sellAmount:1
 let growthRate=1.2;
 let hireGrowthRate=1.1;
 let npcSpeedGrowth=1.2;
+
 let skipNameInput=false;
 let pendingHire=false;
 
@@ -82,20 +84,14 @@ let stallX, stallY;
 let sellAmountPrice=100;
 
 let treeImg, treeX, treeY, maxTreeW=600, displayH;
-let stallImg, bgImg;
-
-function disableActionButtons(flag){
-  document.querySelectorAll('#actions button').forEach(btn => btn.disabled=flag);
-}
+let stallImg;
 
 function preload(){
   treeImg = loadImage('images/wood.png');
   stallImg = loadImage('images/yasai_mujin_hanbaijo.png');
-  bgImg = loadImage('images/kabegami.webp');
 
   clickSound = loadSound('sound/決定ボタンを押す12.mp3');
   appleSound = loadSound('sound/キャンセル9.mp3');
-
   sellSound = loadSound('sound/金額表示.mp3');
   bgm = loadSound('sound/Floraria.mp3');
 
@@ -104,6 +100,12 @@ function preload(){
 
 function setup(){
   createCanvas(windowWidth, windowHeight);
+
+  // ★動画背景をロード
+  cloudVideo = createVideo('images/IMG_9114.mov');
+  cloudVideo.loop();
+  cloudVideo.volume(0);
+  cloudVideo.hide();
 
   userStartAudio().then(()=>{
     if(bgm && !bgm.isPlaying()){
@@ -118,17 +120,8 @@ function setup(){
   stallY = groundY - 20;
   treeX = width*0.28;
   treeY = groundY - 250 + 2*34;
-  if(treeImg) displayH = maxTreeW * (treeImg.height / treeImg.width);
 
-  // ★雲を生成
-  for(let i=0;i<5;i++){
-    clouds.push({
-      x: random(width),
-      y: random(50, 200),
-      speed: random(0.2, 0.6),
-      size: random(80, 150)
-    });
-  }
+  if(treeImg) displayH = maxTreeW * (treeImg.height / treeImg.width);
 
   for(let i=0;i<14;i++) spawnAppleOnTree();
 
@@ -156,29 +149,11 @@ function windowResized(){
   treeY = groundY - 250 + 2*34;
 }
 
-// ★雲の描画
-function drawClouds(){
-  noStroke();
-  fill(255, 255, 255, 240);
-
-  for(let c of clouds){
-    ellipse(c.x, c.y, c.size, c.size * 0.6);
-    ellipse(c.x + c.size*0.4, c.y + 10, c.size*0.8, c.size*0.5);
-    ellipse(c.x - c.size*0.4, c.y + 10, c.size*0.8, c.size*0.5);
-
-    c.x += c.speed;
-    if(c.x > width + 100){
-      c.x = -100;
-      c.y = random(50, 200);
-    }
-  }
-}
-
 function draw(){
-  if(bgImg){ imageMode(CORNER); image(bgImg,0,0,width,height); }
-  else { background(135,206,235); }
-
-  drawClouds(); // ★ 雲を描画
+  // ★背景を動画で描画
+  if (cloudVideo) {
+    image(cloudVideo, 0, 0, width, height);
+  }
 
   drawGround();
   drawTree();
@@ -241,7 +216,6 @@ function hireEmployee(){
       createNPC(`NPC${hiredCount+1}`);
     } else {
       pendingHire=true;
-      disableActionButtons(true);
       document.getElementById('nameModal').style.display='block';
       document.getElementById('npcNameInput').value='';
     }
@@ -256,7 +230,6 @@ function finishNPCName(ok){
   if(pendingHire){
     createNPC(name);
     pendingHire=false;
-    disableActionButtons(false);
     document.getElementById('nameModal').style.display='none';
   }
 }
@@ -365,9 +338,7 @@ function autoSell(){
     }
   }
 
-  if(soldSomething && sellSound){
-    sellSound.play();
-  }
+  if(soldSomething && sellSound){ sellSound.play(); }
 }
 
 function drawProfitEffects(){
