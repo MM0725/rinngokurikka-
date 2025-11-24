@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - 統合版アスペクト比保持</title>
+<title>リンゴの木クリッカー - 木3倍版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <style>
 html,body { margin:0; padding:0; height:100%; background:#87CEEB; overflow:hidden; }
@@ -68,7 +68,7 @@ let sellAmountPrice=100;
 // 木画像
 let treeImg;
 let treeX, treeY;
-let maxTreeW=200; // 幅基準でサイズ調整
+let maxTreeW=600; // 3倍拡大
 
 function disableActionButtons(flag){
   document.querySelectorAll('#actions button').forEach(btn => btn.disabled=flag);
@@ -82,7 +82,7 @@ function setup(){
   stallX = width*0.82;
   stallY = groundY - 20;
   treeX = width*0.28;
-  treeY = groundY - 100; // 初期Y（高さはdrawTreeで調整）
+  treeY = groundY - 100;
   for(let i=0;i<14;i++) spawnAppleOnTree();
 
   document.getElementById('hireBtn').addEventListener('click',hireEmployee);
@@ -119,7 +119,7 @@ function drawGround(){ fill(90,60,40); rect(0,groundY,width,height-groundY); }
 function drawTree(){
   if(treeImg){
     imageMode(CENTER);
-    let aspect = treeImg.height / treeImg.width; // 縦横比
+    let aspect = treeImg.height / treeImg.width;
     let displayW = maxTreeW;
     let displayH = displayW * aspect;
     image(treeImg, treeX, groundY - displayH/2, displayW, displayH);
@@ -171,7 +171,7 @@ function updatePhysics(){
   }
 }
 
-// ─── NPC・UI関連は以前の統合版と同じ ───────────────
+// ─── NPC・UI関連は統合版と同じ ───────────────
 function hireEmployee(){ let price=Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
 if(money>=price){ money-=price; upgradeCounts.hire++; if(skipNameInput) createNPC(`NPC${hiredCount+1}`); else{ pendingHire=true; disableActionButtons(true); document.getElementById('nameModal').style.display='block'; document.getElementById('npcNameInput').value=''; } updateUI(); } }
 
