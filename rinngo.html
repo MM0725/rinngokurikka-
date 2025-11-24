@@ -1,51 +1,3 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="utf-8">
-<title>リンゴの木クリッカー - 完全版（NPC回収&販売統合）</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.sound.min.js"></script>
-<style>
-html,body { margin:0; padding:0; height:100%; overflow:hidden; }
-canvas { display:block; position:absolute; top:0; left:0; z-index:0; }
-#ui { position:absolute; left:12px; top:10px; color:#fff; font-family:sans-serif; text-shadow:0 0 6px #0008; z-index:20; }
-#counts { font-size:20px; }
-#money { position:absolute; top:10px; right:10px; font-size:24px; font-weight:bold; color:#fff; text-shadow:0 0 6px #0008; z-index:20; }
-#money span { margin-left:8px; }
-#actions { position:absolute; top:60px; right:10px; z-index:20; text-align:right; }
-#actions button { background:#333; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; margin-bottom:6px; display:block; width:250px; font-size:16px; }
-#skipSwitch { position:absolute; top:10px; right:280px; color:#fff; font-size:14px; z-index:25; }
-#nameModal { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#222; color:#fff; padding:20px; border-radius:10px; z-index:30; }
-#nameModal input { width:200px; padding:5px; margin-top:10px; font-size:16px; }
-#nameModal button { padding:5px 10px; margin-top:10px; }
-</style>
-</head>
-<body>
-
-<div id="ui"><div id="counts">赤:0　金:0　虹:0</div></div>
-<div id="money">所持金: <span id="moneyVal">1000</span>円 <span id="npcCount">NPC:0</span></div>
-
-<div id="skipSwitch">
-  <label><input type="checkbox" id="skipNameInput"> 名前入力をスキップ</label>
-</div>
-
-<div id="actions">
-  <button id="tierUpBtn">高ティア確率UP (<span id="tierUpPrice">100</span>円)</button>
-  <button id="hireBtn">従業員雇用 (<span id="hirePrice">100</span>円)</button>
-  <button id="speedUpBtn">販売スピードUP (<span id="speedUpPrice">100</span>円)</button>
-  <button id="profitUpBtn">販売利益UP (<span id="profitUpPrice">100</span>)</button>
-  <button id="npcSpeedBtn">NPC速度UP (<span id="npcSpeedPrice">100</span>)</button>
-  <button id="sellAmountUpBtn">一度に販売個数UP (<span id="sellAmountPrice">100</span>)</button>
-</div>
-
-<div id="nameModal">
-  <div>NPCの名前を入力してください</div>
-  <input type="text" id="npcNameInput" placeholder="NPC名">
-  <br>
-  <button id="npcNameOk">OK</button>
-  <button id="npcNameCancel">キャンセル</button>
-</div>
-
 <script>
 let apples=[], npcs=[], groundY;
 let money=1000, hiredCount=0;
@@ -159,13 +111,67 @@ function draw(){
   updateUI();
 }
 
-// --- ここから下は元の全機能（リンゴ生成・クリック・NPC回収・自動販売・アップグレード） ---
-// spawnAppleOnTree, mousePressed, hireEmployee, finishNPCName, createNPC, drawNPCs,
-// updateNPCs, moveToward, updatePhysics, autoSell, drawProfitEffects,
-// increaseTierChance, decreaseSellInterval, increaseSellProfit, increaseNPCSpeed,
-// increaseSellAmount, findNearestGroundAppleIdx, updateUI
-// （先ほどと全く同じコードを統合してください）
+// --- 描画系 ---
+function drawClouds(){
+  noStroke(); fill(255,255,255,240);
+  for(let c of clouds){
+    ellipse(c.x, c.y, c.size, c.size*0.6);
+    ellipse(c.x + c.size*0.4, c.y + 10, c.size*0.8, c.size*0.5);
+    ellipse(c.x - c.size*0.4, c.y + 10, c.size*0.8, c.size*0.5);
+    c.x += c.speed;
+    if(c.x > width + 100){ c.x = -100; c.y = random(50,200); }
+  }
+}
 
+function drawGround(){ fill(90,60,40); rect(0,groundY,width,height-groundY); }
+function drawTree(){ if(treeImg){ imageMode(CENTER); image(treeImg, treeX, treeY, maxTreeW, displayH); } }
+function drawStall(){ if(stallImg){ imageMode(CENTER); image(stallImg, stallX, stallY-50, 100*2.5, 100*2.5); } }
+function drawApples(){ for(let a of apples){ if(a.state!=='picked'){ let t=TIERS[a.tier]; if(t.img){ imageMode(CENTER); image(t.img,a.x,a.y,34,34); } else { let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(a.x,a.y,34,34); } } } }
+function drawNPCs(){ for(let n of npcs){ push(); translate(n.x,n.y); fill(0,0,0,60); ellipse(0,22,32,10); fill(220,200,180); rect(-9,-18,18,26,6); fill(255,220,180); ellipse(0,-28,24,24); fill(0); ellipse(-4,-30,3,3); ellipse(4,-30,3,3); if(n.carryTier!==null){ let t=TIERS[n.carryTier]; if(t.img){ imageMode(CENTER); image(t.img,0,-6,20,20); } else { let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(0,-6,12,12); } } fill(255); textSize(12); text(n.name,0,-40); pop(); } }
+function drawProfitEffects(){ for(let i=profitEffects.length-1;i>=0;i--){ let p=profitEffects[i]; fill(255,255,0); textSize(16); text(`+${p.value}円`,p.x,p.y); p.y-=1; p.life--; if(p.life<=0) profitEffects.splice(i,1); } }
+
+// --- リンゴ生成・クリック ---
+function spawnAppleOnTree(){ let p=random(), tier; if(p<tierBase.red) tier=0; else if(p<tierBase.red+tierBase.gold) tier=1; else tier=2; let rx=random(-maxTreeW*0.3,maxTreeW*0.3); let ry=random(treeY - displayH*0.5 + 4*34, treeY - displayH*0.25 + 4*34); apples.push({x:treeX+rx, y:ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false}); }
+
+function mousePressed(){ for(let a of apples){ if(a.state==='onTree' && dist(mouseX,mouseY,a.x,a.y)<22){ a.state='falling'; a.vy=0; a.vx=random(-0.6,0.6); a.bounced=false; if(appleSound) appleSound.play(); setTimeout(spawnAppleOnTree,200+random(0,300)); break; } } }
+
+// --- NPC雇用・名前入力 ---
+function hireEmployee(){ let price=Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire)); if(money>=price){ money-=price; upgradeCounts.hire++; if(skipNameInput){ createNPC(`NPC${hiredCount+1}`); } else { pendingHire=true; disableActionButtons(true); document.getElementById('nameModal').style.display='block'; document.getElementById('npcNameInput').value=''; } updateUI(); } }
+
+function finishNPCName(ok){ let name=ok?document.getElementById('npcNameInput').value.trim():`NPC${hiredCount+1}`; if(name==='') name=`NPC${hiredCount+1}`; if(pendingHire){ createNPC(name); pendingHire=false; disableActionButtons(false); document.getElementById('nameModal').style.display='none'; } }
+
+function createNPC(name){ npcs.push({x:treeX,y:groundY-20,state:'idle',targetIdx:-1,carryTier:null,speed:2,homeX:treeX,homeY:groundY-20,name:name}); hiredCount++; updateUI(); }
+
+// --- NPC移動・回収・運搬 ---
+function updateNPCs(){ for(let n of npcs){ if(n.state==='idle'){ let idx=findNearestGroundAppleIdx(n.x,n.y); if(idx!==-1){ n.targetIdx=idx; n.state='toApple'; } } else if(n.state==='toApple'){ if(n.targetIdx<0||n.targetIdx>=apples.length||apples[n.targetIdx].state!=='onGround'){ n.state='idle'; n.targetIdx=-1; continue; } let a=apples[n.targetIdx]; moveToward(n,a.x,a.y); if(dist(n.x,n.y,a.x,a.y)<18){ n.carryTier=a.tier; a.state='picked'; n.targetIdx=-1; n.state='toStall'; } } else if(n.state==='toStall'){ moveToward(n,stallX,stallY); if(dist(n.x,n.y,stallX,stallY)<20&&n.carryTier!==null){ stallInventory[TIERS[n.carryTier].key]++; n.carryTier=null; n.state='idle'; } } } }
+
+function moveToward(e,tx,ty){ let ang=atan2(ty-e.y,tx-e.x); e.x+=cos(ang)*e.speed; e.y+=sin(ang)*e.speed; }
+
+// --- 物理処理 ---
+function updatePhysics(){ for(let a of apples){ if(a.state==='falling'){ a.vy+=0.8; a.y+=a.vy; a.x+=a.vx; if(!a.bounced&&a.y>=groundY-17){ a.bounced=true; a.vy=-10; a.y=groundY-17; } else if(a.bounced&&a.y>=groundY-17){ a.state='onGround'; a.vy=0; a.vx=0; } } } }
+
+// --- 自動販売 ---
+function autoSell(){ let soldSomething=false; for(let t of TIERS){ let sellNum=Math.min(stallInventory[t.key],sellAmountPerTick); if(sellNum>0){ let profit=Math.floor(t.value*sellNum*sellProfitMult); money+=profit; profitEffects.push({x:stallX,y:stallY-30,value:profit,life:60}); stallInventory[t.key]-=sellNum; soldSomething=true; } } if(soldSomething&&sellSound) sellSound.play(); }
+
+// --- アップグレード ---
+function increaseTierChance(){ let price=Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier)); if(money>=price){ money-=price; upgradeCounts.tier++; tierBoost+=0.01; tierBase.red=Math.max(0.6,1-tierBoost*2); tierBase.gold=Math.min(0.35,tierBoost); tierBase.rainbow=Math.min(0.1,tierBoost); updateUI(); } }
+function decreaseSellInterval(){ let price=Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed)); if(money>=price){ money-=price; upgradeCounts.speed++; sellInterval=Math.max(500,sellInterval-200); updateUI(); } }
+function increaseSellProfit(){ let price=Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit)); if(money>=price){ money-=price; upgradeCounts.profit++; sellProfitMult*=1.2; updateUI(); } }
+function increaseNPCSpeed(){ let price=Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed)); if(money>=price){ money-=price; upgradeCounts.npcSpeed++; for(let n of npcs) n.speed+=0.5; updateUI(); } }
+function increaseSellAmount(){ if(money>=sellAmountPrice){ money-=sellAmountPrice; sellAmountPerTick++; sellAmountPrice=Math.floor(sellAmountPrice*1.2); document.getElementById('sellAmountPrice').innerText=sellAmountPrice; } }
+
+// --- ユーティリティ ---
+function findNearestGroundAppleIdx(px,py){ let best=-1,bestd=Infinity; for(let i=0;i<apples.length;i++){ if(apples[i].state==='onGround'){ let d=dist(px,py,apples[i].x,apples[i].y); if(d<bestd){ bestd=d; best=i; } } } return best; }
+
+function updateUI(){
+  document.getElementById('counts').innerText=
+    `赤:${stallInventory.red}　金:${stallInventory.gold}　虹:${stallInventory.rainbow}`;
+  document.getElementById('moneyVal').innerText=money.toLocaleString();
+  document.getElementById('npcCount').innerText=`NPC:${hiredCount}`;
+  document.getElementById('tierUpPrice').innerText=Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
+  document.getElementById('hirePrice').innerText=Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
+  document.getElementById('speedUpPrice').innerText=Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed));
+  document.getElementById('profitUpPrice').innerText=Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit));
+  document.getElementById('npcSpeedPrice').innerText=Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed));
+}
 </script>
-</body>
-</html>
