@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - 効果音統合版（雲付き・リンゴ2倍）</title>
+<title>リンゴの木クリッカー - 効果音統合版（雲付き）</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.sound.min.js"></script>
 <style>
@@ -199,15 +199,8 @@ function drawApples(){
   for(let a of apples){
     if(a.state!=='picked'){
       let t=TIERS[a.tier];
-      if(t.img){ 
-        imageMode(CENTER); 
-        image(t.img,a.x,a.y,68,68); // ← 2倍サイズ
-      }
-      else { 
-        let rgb=t.rgb; 
-        fill(rgb[0],rgb[1],rgb[2]); 
-        ellipse(a.x,a.y,68,68); // ← 2倍サイズ
-      }
+      if(t.img){ imageMode(CENTER); image(t.img,a.x,a.y,34,34); }
+      else { let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(a.x,a.y,34,34); }
     }
   }
 }
@@ -226,7 +219,7 @@ function spawnAppleOnTree(){
 
 function mousePressed(){
   for(let a of apples){
-    if(a.state==='onTree' && dist(mouseX,mouseY,a.x,a.y)<44){ // ← 半径も2倍
+    if(a.state==='onTree' && dist(mouseX,mouseY,a.x,a.y)<22){
       a.state='falling';
       a.vy=0;
       a.vx=random(-0.6,0.6);
@@ -238,7 +231,6 @@ function mousePressed(){
   }
 }
 
-// --- NPC / アップグレード系 ---
 function hireEmployee(){
   let price=Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
   if(money>=price){
@@ -438,4 +430,42 @@ function increaseNPCSpeed(){
 
 function increaseSellAmount(){
   if(money>=sellAmountPrice){
-    money-=sellAmountPrice
+    money-=sellAmountPrice;
+    sellAmountPerTick++;
+    sellAmountPrice=Math.floor(sellAmountPrice*1.2);
+    document.getElementById('sellAmountPrice').innerText=sellAmountPrice;
+  }
+}
+
+function findNearestGroundAppleIdx(px,py){
+  let best=-1,bestd=Infinity;
+  for(let i=0;i<apples.length;i++){
+    if(apples[i].state==='onGround'){
+      let d=dist(px,py,apples[i].x,apples[i].y);
+      if(d<bestd){ bestd=d; best=i; }
+    }
+  }
+  return best;
+}
+
+function updateUI(){
+  document.getElementById('counts').innerText=
+    `赤:${stallInventory.red}　金:${stallInventory.gold}　虹:${stallInventory.rainbow}`;
+  document.getElementById('moneyVal').innerText=money.toLocaleString();
+  document.getElementById('npcCount').innerText=`NPC:${hiredCount}`;
+
+  document.getElementById('tierUpPrice').innerText=
+    Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
+  document.getElementById('hirePrice').innerText=
+    Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
+  document.getElementById('speedUpPrice').innerText=
+    Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed));
+  document.getElementById('profitUpPrice').innerText=
+    Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit));
+  document.getElementById('npcSpeedPrice').innerText=
+    Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed));
+}
+</script>
+
+</body>
+</html>
