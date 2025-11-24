@@ -77,8 +77,10 @@ function disableActionButtons(flag){
 
 // 画像読み込み
 function preload(){
-  // 画像パスをHTML基準で確実に
-  treeImg = loadImage('images/wood.png');
+  treeImg = loadImage('images/wood.png', 
+      () => console.log("木画像読み込み成功"),
+      () => console.error("木画像読み込み失敗")
+  );
 }
 
 function setup(){
@@ -150,8 +152,8 @@ function spawnAppleOnTree(){
   apples.push({x:treeX+rx, y:treeY+ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
 }
 
-// 以下、元のリンゴクリッカーのNPC・UI・自動販売などのコードを統合
-// …(上で提供した統合版のコードをここにそのまま入れる)…
+// 以下、NPC・UI・自動販売などの既存統合コードをそのまま使用
+// (上で提供した統合版のコードをこの下にコピーして挿入してください)
 
 </script>
 </body>
