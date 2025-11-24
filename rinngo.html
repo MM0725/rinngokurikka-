@@ -1,180 +1,50 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="utf-8">
-<title>リンゴの木クリッカー - NPC連続収穫版</title>
+<meta charset="UTF-8">
+<title>テスト表示</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
-<style>
-html,body { margin:0; padding:0; height:100%; background:#87CEEB; overflow:hidden; }
-canvas { display:block; }
-#ui { position:absolute; left:12px; top:10px; color:#fff; font-family:sans-serif; text-shadow:0 0 6px #0008; z-index:20; }
-#counts { font-size:20px; }
-#money { position:absolute; top:10px; right:10px; font-size:24px; font-weight:bold; color:#fff; text-shadow:0 0 6px #0008; z-index:20; }
-#money span { margin-left:8px; }
-#actions { position:absolute; top:60px; right:10px; z-index:20; text-align:right; }
-#actions button { background:#333; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; margin-bottom:6px; display:block; width:250px; font-size:16px; }
-#skipSwitch { position:absolute; top:10px; right:280px; color:#fff; font-size:14px; z-index:25; }
-#nameModal { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#222; color:#fff; padding:20px; border-radius:10px; z-index:30; }
-#nameModal input { width:200px; padding:5px; margin-top:10px; font-size:16px; }
-#nameModal button { padding:5px 10px; margin-top:10px; }
-</style>
 </head>
 <body>
-<div id="ui"><div id="counts">赤:0　黄:0　金:0</div></div>
-<div id="money">所持金: <span id="moneyVal">1000</span>円 <span id="npcCount">NPC:0</span></div>
-
-<div id="skipSwitch">
-  <label><input type="checkbox" id="skipNameInput"> 名前入力をスキップ</label>
-</div>
-
-<div id="actions">
-  <button id="tierUpBtn">高ティア確率UP (<span id="tierUpPrice">100</span>円)</button>
-  <button id="hireBtn">従業員雇用 (<span id="hirePrice">100</span>円)</button>
-  <button id="speedUpBtn">販売スピードUP (<span id="speedUpPrice">100</span>円)</button>
-  <button id="profitUpBtn">販売利益UP (<span id="profitUpPrice">100</span>円)</button>
-  <button id="npcSpeedBtn">NPC速度UP (<span id="npcSpeedPrice">100</span>円)</button>
-  <button id="sellAmountUpBtn">一度に販売個数UP (<span id="sellAmountPrice">100</span>円)</button>
-</div>
-
-<div id="nameModal">
-  <div>NPCの名前を入力してください</div>
-  <input type="text" id="npcNameInput" placeholder="NPC名">
-  <br>
-  <button id="npcNameOk">OK</button>
-  <button id="npcNameCancel">キャンセル</button>
-</div>
-
 <script>
-let apples=[], npcs=[], groundY;
-let collected={red:0,yellow:0,gold:0}, money=1000, hiredCount=0;
-let stallInventory={red:0,yellow:0,gold:0};
-let sellInterval=2000, sellAmountPerTick=1, sellProfitMult=1;
-let profitEffects=[];
-let tierBoost=0;
-const TIERS=[{key:'red',value:20,rgb:[230,60,60]},{key:'yellow',value:60,rgb:[240,220,60]},{key:'gold',value:200,rgb:[200,100,255]}];
-let tierBase={red:1.0,yellow:0,gold:0};
-
-let upgradeCounts={tier:0,hire:0,speed:0,profit:0,npcSpeed:0};
-let basePrices={tier:100,hire:100,speed:100,profit:100,npcSpeed:100,sellAmount:100};
-let growthRate=1.2;
-let hireGrowthRate=1.1;
-let npcSpeedGrowth=1.2;
-let skipNameInput=false;
-let pendingHire=false;
-
-let stallX, stallY;
-let sellAmountPrice=100;
-
-// 木画像用
 let treeImg;
-let treeX, treeY, treeW=200, treeH=400;
+let treeX = 300, treeY;
+let treeW = 200, treeH = 400;
+let groundY;
+let apples = [];
 
-// ▼ ボタン一括無効化
-function disableActionButtons(flag){
-  const buttons = document.querySelectorAll('#actions button');
-  buttons.forEach(btn => btn.disabled = flag);
+function preload() {
+  treeImg = loadImage('images/wood.png');
 }
 
-// 画像読み込み
-function preload(){
-  treeImg = loadImage('images/wood.png',
-      ()=>console.log("木画像読み込み成功"),
-      ()=>console.error("木画像読み込み失敗")
-  );
-}
-
-function setup(){
-  createCanvas(windowWidth,windowHeight);
-  groundY=height*0.85;
-  stallX = width*0.82;
-  stallY = groundY - 20;
-  treeX = width*0.28;
+function setup() {
+  createCanvas(windowWidth, windowHeight);
+  groundY = height*0.85;
   treeY = groundY - treeH/2;
 
-  for(let i=0;i<14;i++) spawnAppleOnTree();
-
-  document.getElementById('hireBtn').addEventListener('click',hireEmployee);
-  document.getElementById('tierUpBtn').addEventListener('click',increaseTierChance);
-  document.getElementById('speedUpBtn').addEventListener('click',decreaseSellInterval);
-  document.getElementById('profitUpBtn').addEventListener('click',increaseSellProfit);
-  document.getElementById('npcSpeedBtn').addEventListener('click',increaseNPCSpeed);
-  document.getElementById('sellAmountUpBtn').addEventListener('click',increaseSellAmount);
-  document.getElementById('skipNameInput').addEventListener('change',()=>skipNameInput=document.getElementById('skipNameInput').checked);
-  document.getElementById('npcNameOk').addEventListener('click',()=>finishNPCName(true));
-  document.getElementById('npcNameCancel').addEventListener('click',()=>finishNPCName(false));
-
-  setInterval(autoSell,sellInterval);
-  updateUI();
+  for(let i=0;i<10;i++){
+    let rx = random(-treeW/2+20, treeW/2-20);
+    let ry = random(-treeH/2+20, -20);
+    apples.push({x:treeX+rx, y:treeY+ry});
+  }
 }
 
-function windowResized(){
-  resizeCanvas(windowWidth,windowHeight);
-  groundY=height*0.85;
-  stallX = width*0.82;
-  stallY = groundY - 20;
-  treeX = width*0.28;
-  treeY = groundY - treeH/2;
-}
-
-function draw(){
+function draw() {
   background(135,206,235);
-  drawGround();
-  drawTree();
-  drawStall();
-  drawApples();
-  drawNPCs();
-  drawProfitEffects();
-  updatePhysics();
-  updateNPCs();
-  updateUI();
-}
+  fill(90,60,40);
+  rect(0,groundY,width,height-groundY); // 地面
 
-// ─── 描画関数 ─────────────────────
-function drawGround(){ fill(90,60,40); rect(0,groundY,width,height-groundY); }
+  if(treeImg) imageMode(CENTER), image(treeImg, treeX, treeY, treeW, treeH);
 
-function drawTree(){
-  if(treeImg){
-    imageMode(CENTER);
-    image(treeImg, treeX, treeY, treeW, treeH);
-  } else {
-    fill(34,139,34);
-    rect(treeX-30, treeY-200, 60, 400);
-  }
-}
-
-function drawStall(){
-  fill(150,75,0);
-  rect(stallX-40, stallY-20, 80, 40, 5);
   fill(255,0,0);
-  triangle(stallX-50, stallY-20, stallX+50, stallY-20, stallX, stallY-60);
-}
+  rect(width*0.82-40, groundY-40, 80, 40); // 販売所土台
+  triangle(width*0.82-50, groundY-40, width*0.82+50, groundY-40, width*0.82, groundY-80); // 屋根
 
-function drawApples(){
+  fill(255,0,0);
   for(let a of apples){
-    if(a.state!=='picked'){
-      let rgb = TIERS[a.tier].rgb;
-      fill(rgb[0],rgb[1],rgb[2]);
-      ellipse(a.x, a.y, 34, 34);
-      fill(255,255,255,80);
-      ellipse(a.x-6, a.y-6, 8, 6);
-    }
+    ellipse(a.x, a.y, 30, 30);
   }
 }
-
-// ─── リンゴ座標生成 ─────────────────
-function spawnAppleOnTree(){
-  let p=random(), tier;
-  if(p<tierBase.red) tier=0;
-  else if(p<tierBase.red+tierBase.yellow) tier=1;
-  else tier=2;
-  let rx=random(-treeW/2+20, treeW/2-20);
-  let ry=random(-treeH/2+30, -30);
-  apples.push({x:treeX+rx, y:treeY+ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
-}
-
-// 以下、元のNPC・UI・自動販売ロジック（updateNPCs, autoSell, hireEmployeeなど）を
-// そのまま統合して貼り付ければ完成です。
-
 </script>
 </body>
 </html>
