@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - 効果音統合版（雲付き）</title>
+<title>リンゴの木クリッカー - 完全版（リンゴ2倍）</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.sound.min.js"></script>
 <style>
@@ -84,6 +84,9 @@ let sellAmountPrice=100;
 let treeImg, treeX, treeY, maxTreeW=600, displayH;
 let stallImg, bgImg;
 
+let appleSize = 68; // ★リンゴサイズ2倍
+let npcAppleSize = 40; // ★NPCが持つリンゴサイズ
+
 function disableActionButtons(flag){
   document.querySelectorAll('#actions button').forEach(btn => btn.disabled=flag);
 }
@@ -117,10 +120,9 @@ function setup(){
   stallX = width * 0.82;
   stallY = groundY - 20;
   treeX = width*0.28;
-  treeY = groundY - 250 + 2*34;
+  treeY = groundY - 250 + appleSize/2;
   if(treeImg) displayH = maxTreeW * (treeImg.height / treeImg.width);
 
-  // ★雲を生成
   for(let i=0;i<5;i++){
     clouds.push({
       x: random(width),
@@ -153,14 +155,12 @@ function windowResized(){
   stallX = width * 0.82;
   stallY = groundY - 20;
   treeX = width*0.28;
-  treeY = groundY - 250 + 2*34;
+  treeY = groundY - 250 + appleSize/2;
 }
 
-// ★雲の描画
 function drawClouds(){
   noStroke();
   fill(255, 255, 255, 240);
-
   for(let c of clouds){
     ellipse(c.x, c.y, c.size, c.size * 0.6);
     ellipse(c.x + c.size*0.4, c.y + 10, c.size*0.8, c.size*0.5);
@@ -178,8 +178,7 @@ function draw(){
   if(bgImg){ imageMode(CORNER); image(bgImg,0,0,width,height); }
   else { background(135,206,235); }
 
-  drawClouds(); // ★ 雲を描画
-
+  drawClouds();
   drawGround();
   drawTree();
   drawStall();
@@ -199,8 +198,8 @@ function drawApples(){
   for(let a of apples){
     if(a.state!=='picked'){
       let t=TIERS[a.tier];
-      if(t.img){ imageMode(CENTER); image(t.img,a.x,a.y,34,34); }
-      else { let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(a.x,a.y,34,34); }
+      if(t.img){ imageMode(CENTER); image(t.img,a.x,a.y,appleSize,appleSize); }
+      else { let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(a.x,a.y,appleSize,appleSize); }
     }
   }
 }
@@ -211,15 +210,15 @@ function spawnAppleOnTree(){
   else if(p<tierBase.red+tierBase.gold) tier=1;
   else tier=2;
 
-  let rx=random(-maxTreeW*0.3,maxTreeW*0.3);
-  let ry=random(treeY - displayH*0.5 + 4*34, treeY - displayH*0.25 + 4*34);
+  let rx=random(-maxTreeW*0.3 - appleSize/2, maxTreeW*0.3 + appleSize/2);
+  let ry=random(treeY - displayH*0.5, treeY - displayH*0.25);
 
   apples.push({x:treeX+rx, y:ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
 }
 
 function mousePressed(){
   for(let a of apples){
-    if(a.state==='onTree' && dist(mouseX,mouseY,a.x,a.y)<22){
+    if(a.state==='onTree' && dist(mouseX,mouseY,a.x,a.y)<appleSize/2){
       a.state='falling';
       a.vy=0;
       a.vx=random(-0.6,0.6);
@@ -236,7 +235,6 @@ function hireEmployee(){
   if(money>=price){
     money-=price;
     upgradeCounts.hire++;
-
     if(skipNameInput){
       createNPC(`NPC${hiredCount+1}`);
     } else {
@@ -252,7 +250,6 @@ function hireEmployee(){
 function finishNPCName(ok){
   let name=ok?document.getElementById('npcNameInput').value.trim():`NPC${hiredCount+1}`;
   if(name==='') name=`NPC${hiredCount+1}`;
-
   if(pendingHire){
     createNPC(name);
     pendingHire=false;
@@ -278,12 +275,34 @@ function drawNPCs(){
 
     if(n.carryTier!==null){
       let t=TIERS[n.carryTier];
-      if(t.img){ imageMode(CENTER); image(t.img,0,-6,20,20); }
-      else { let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(0,-6,12,12); }
+      if(t.img){ imageMode(CENTER); image(t.img,0,-6,npcAppleSize,npcAppleSize); }
+      else { let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(0,-6,npcAppleSize*0.6,npcAppleSize*0.6); }
     }
 
     fill(255); textSize(12); text(n.name,0,-40);
     pop();
+  }
+}
+
+// 物理更新
+function updatePhysics(){
+  for(let a of apples){
+    if(a.state==='falling'){
+      a.vy+=0.8;
+      a.y+=a.vy;
+      a.x+=a.vx;
+
+      if(!a.bounced && a.y>=groundY-appleSize/2){
+        a.bounced=true;
+        a.vy=-10;
+        a.y=groundY-appleSize/2;
+      }
+      else if(a.bounced && a.y>=groundY-appleSize/2){
+        a.state='onGround';
+        a.vy=0;
+        a.vx=0;
+      }
+    }
   }
 }
 
@@ -304,7 +323,6 @@ function updateNPCs(){
       }
       let a=apples[n.targetIdx];
       moveToward(n,a.x,a.y);
-
       if(dist(n.x,n.y,a.x,a.y)<18){
         n.carryTier=a.tier;
         a.state='picked';
@@ -314,7 +332,6 @@ function updateNPCs(){
     }
     else if(n.state==='toStall'){
       moveToward(n,stallX,stallY);
-
       if(dist(n.x,n.y,stallX,stallY)<20 && n.carryTier!==null){
         stallInventory[TIERS[n.carryTier].key]++;
         n.carryTier=null;
@@ -330,30 +347,8 @@ function moveToward(e,tx,ty){
   e.y+=sin(ang)*e.speed;
 }
 
-function updatePhysics(){
-  for(let a of apples){
-    if(a.state==='falling'){
-      a.vy+=0.8;
-      a.y+=a.vy;
-      a.x+=a.vx;
-
-      if(!a.bounced && a.y>=groundY-17){
-        a.bounced=true;
-        a.vy=-10;
-        a.y=groundY-17;
-      }
-      else if(a.bounced && a.y>=groundY-17){
-        a.state='onGround';
-        a.vy=0;
-        a.vx=0;
-      }
-    }
-  }
-}
-
 function autoSell(){
   let soldSomething = false;
-
   for(let t of TIERS){
     let sellNum=Math.min(stallInventory[t.key],sellAmountPerTick);
     if(sellNum>0){
@@ -364,10 +359,7 @@ function autoSell(){
       soldSomething = true;
     }
   }
-
-  if(soldSomething && sellSound){
-    sellSound.play();
-  }
+  if(soldSomething && sellSound) sellSound.play();
 }
 
 function drawProfitEffects(){
@@ -378,7 +370,6 @@ function drawProfitEffects(){
     text(`+${p.value}円`,p.x,p.y);
     p.y-=1;
     p.life--;
-
     if(p.life<=0) profitEffects.splice(i,1);
   }
 }
@@ -388,12 +379,10 @@ function increaseTierChance(){
   if(money>=price){
     money-=price;
     upgradeCounts.tier++;
-
     tierBoost+=0.01;
     tierBase.red=Math.max(0.6,1-tierBoost*2);
     tierBase.gold=Math.min(0.35,tierBoost);
     tierBase.rainbow=Math.min(0.1,tierBoost);
-
     updateUI();
   }
 }
@@ -432,38 +421,35 @@ function increaseSellAmount(){
   if(money>=sellAmountPrice){
     money-=sellAmountPrice;
     sellAmountPerTick++;
-    sellAmountPrice=Math.floor(sellAmountPrice*1.2);
-    document.getElementById('sellAmountPrice').innerText=sellAmountPrice;
+    sellAmountPrice=Math.floor(sellAmountPrice*growthRate);
+    updateUI();
   }
 }
 
-function findNearestGroundAppleIdx(px,py){
-  let best=-1,bestd=Infinity;
+function findNearestGroundAppleIdx(x,y){
+  let minD=1e6, idx=-1;
   for(let i=0;i<apples.length;i++){
-    if(apples[i].state==='onGround'){
-      let d=dist(px,py,apples[i].x,apples[i].y);
-      if(d<bestd){ bestd=d; best=i; }
+    let a=apples[i];
+    if(a.state==='onGround'){
+      let d=dist(x,y,a.x,a.y);
+      if(d<minD){ minD=d; idx=i; }
     }
   }
-  return best;
+  return idx;
 }
 
 function updateUI(){
-  document.getElementById('counts').innerText=
+  document.getElementById('moneyVal').textContent=money;
+  document.getElementById('npcCount').textContent=`NPC:${hiredCount}`;
+  document.getElementById('counts').textContent=
     `赤:${stallInventory.red}　金:${stallInventory.gold}　虹:${stallInventory.rainbow}`;
-  document.getElementById('moneyVal').innerText=money.toLocaleString();
-  document.getElementById('npcCount').innerText=`NPC:${hiredCount}`;
 
-  document.getElementById('tierUpPrice').innerText=
-    Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
-  document.getElementById('hirePrice').innerText=
-    Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
-  document.getElementById('speedUpPrice').innerText=
-    Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed));
-  document.getElementById('profitUpPrice').innerText=
-    Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit));
-  document.getElementById('npcSpeedPrice').innerText=
-    Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed));
+  document.getElementById('tierUpPrice').textContent=Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
+  document.getElementById('hirePrice').textContent=Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
+  document.getElementById('speedUpPrice').textContent=Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed));
+  document.getElementById('profitUpPrice').textContent=Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit));
+  document.getElementById('npcSpeedPrice').textContent=Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed));
+  document.getElementById('sellAmountPrice').textContent=sellAmountPrice;
 }
 </script>
 
