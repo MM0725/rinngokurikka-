@@ -7,214 +7,93 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.sound.min.js"></script>
 
 <style>
-    html, body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        background: #000;
-    }
+  html, body {
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    background: black;
+  }
+  canvas {
+    display: block;
+  }
 </style>
 </head>
 
 <body>
-
-<!-- ★ GitHub Pages で確実に動く動画背景 -->
-<video id="bgVideo" src="images/IMG_9114.mov"
-       autoplay loop muted playsinline
-       style="display:none"></video>
-
 <script>
 
-// ======================================================
-// 画像・音声読み込み
-// ======================================================
-let treeImg, stallImg, appleImg, appleGoldImg, appleRainbowImg;
-let bgm, se_pop, se_sell, se_money;
+//========= ▼ 変数 =========
+let bgVideo;
+let treeImg, shopImg, appleImg;
 let apples = [];
-let npcs = [];
-let profitEffects = [];
 let money = 0;
 
-// ------------------------------------------------------
-function preload() {
-    treeImg = loadImage("images/tree.png");
-    stallImg = loadImage("images/stall.png");
+//========= ▼ preload =========
+function preload(){
+  // ▼ 背景動画（mp4）
+  bgVideo = createVideo("images/IMG_9114.mp4");
+  bgVideo.hide();  // HTMLタグを非表示（p5描画のみ）
 
-    appleImg = loadImage("images/apple_normal.png");
-    appleGoldImg = loadImage("images/apple_gold.png");
-    appleRainbowImg = loadImage("images/apple_rainbow.png");
-
-    bgm = loadSound("sound/Floraria.mp3");
-    se_pop = loadSound("sound/pop.mp3");
-    se_sell = loadSound("sound/sell.mp3");
-    se_money = loadSound("sound/金額表示.mp3");
+  // ▼ 画像
+  treeImg = loadImage("images/tree.png");
+  shopImg = loadImage("images/shop.png");
+  appleImg = loadImage("images/apple.png");
 }
 
-// ------------------------------------------------------
-function setup() {
-    createCanvas(windowWidth, windowHeight);
-    imageMode(CENTER);
-    textAlign(CENTER, CENTER);
+//========= ▼ setup =========
+function setup(){
+  createCanvas(windowWidth, windowHeight);
+
+  // ▼ 動画ループ
+  bgVideo.loop();
+  bgVideo.volume(0);
+
+  // ▼ ブラウザ自動再生制限対応
+  userStartVideo();
 }
 
-// ======================================================
-// メイン描画
-// ======================================================
-function draw() {
+//========= ▼ draw =========
+function draw(){
+  background(0);
 
-    // ★ HTML video を背景として描画（GitHub Pages対応）
-    let vid = document.getElementById("bgVideo");
-    if (vid && vid.readyState >= 2) {
-        image(vid, 0, 0, width, height);
-    } else {
-        background(135, 206, 235); // 読み込み前だけ仮の空
-    }
+  // ==== 背景動画 ====
+  if (bgVideo.loadedmetadata) {
+    image(bgVideo, 0, 0, width, height);
+  }
 
-    drawGround();
-    drawTree();
-    drawStall();
-    drawApples();
-    drawNPCs();
-    drawProfitEffects();
-    updatePhysics();
-    updateNPCs();
-    updateUI();
+  // ==== 木 ====
+  image(treeImg, width/2 - 150, height/2 - 200, 300, 300);
+
+  // ==== 販売所 ====
+  image(shopImg, 50, height - 180, 180, 160);
+
+  // ==== リンゴ ====
+  for (let a of apples){
+    image(appleImg, a.x, a.y, a.size, a.size);
+    a.y += a.speed;
+  }
+
+  // ==== 所持金 ====
+  fill(255);
+  textSize(30);
+  text("所持金："+money+" 円", 20, 40);
 }
 
-// ======================================================
-// 木・地面・販売所
-// ======================================================
-function drawGround() {
-    noStroke();
-    fill(80, 200, 120);
-    rect(0, height - 120, width, 120);
+//========= ▼ クリックでリンゴを落とす =========
+function mousePressed(){
+  apples.push({
+    x: random(width/2 - 100, width/2 + 100),
+    y: height/2 - 200,
+    size: 40,
+    speed: 3
+  });
 }
 
-function drawTree() {
-    if (treeImg) image(treeImg, width * 0.3, height * 0.6, 350, 350);
+//========= ▼ 画面サイズ変動 =========
+function windowResized(){
+  resizeCanvas(windowWidth, windowHeight);
 }
-
-function drawStall() {
-    if (stallImg) image(stallImg, width * 0.8, height * 0.75, 250, 250);
-}
-
-// ======================================================
-// リンゴ生成
-// ======================================================
-function mousePressed() {
-    // BGM開始
-    if (!bgm.isPlaying()) bgm.loop();
-
-    // 背景動画開始（クリックで確実に再生）
-    let vid = document.getElementById("bgVideo");
-    if (vid) vid.play();
-
-    // 木付近にリンゴ生成
-    let x = random(width * 0.22, width * 0.38);
-    let y = random(height * 0.30, height * 0.48);
-
-    let typeRand = random(1);
-    let type = "normal";
-    if (typeRand < 0.05) type = "rainbow";
-    else if (typeRand < 0.20) type = "gold";
-
-    apples.push({
-        x: x,
-        y: y,
-        vy: 0,
-        size: 40,
-        picked: false,
-        type: type
-    });
-
-    if (se_pop) se_pop.play();
-}
-
-// ======================================================
-// リンゴ描画
-// ======================================================
-function drawApples() {
-    for (let a of apples) {
-        let img = appleImg;
-        if (a.type === "gold") img = appleGoldImg;
-        if (a.type === "rainbow") img = appleRainbowImg;
-
-        image(img, a.x, a.y, a.size, a.size);
-    }
-}
-
-// ======================================================
-// 物理
-// ======================================================
-function updatePhysics() {
-    for (let a of apples) {
-        if (!a.picked) {
-            a.vy += 0.4;
-            a.y += a.vy;
-
-            if (a.y > height - 150) {
-                a.y = height - 150;
-                a.vy = 0;
-                a.picked = true;
-                sellApple(a);
-            }
-        }
-    }
-}
-
-// ======================================================
-// 販売処理
-// ======================================================
-function sellApple(a) {
-    let price = 1;
-    if (a.type === "gold") price = 5;
-    else if (a.type === "rainbow") price = 20;
-
-    money += price;
-
-    profitEffects.push({
-        x: a.x,
-        y: a.y,
-        text: "+" + price,
-        alpha: 255
-    });
-
-    if (se_sell) se_sell.play();
-    if (se_money) se_money.play();
-}
-
-// ======================================================
-// NPC（ダミー）
-// ======================================================
-function drawNPCs() {}
-function updateNPCs() {}
-
-// ======================================================
-// 売上表示
-// ======================================================
-function drawProfitEffects() {
-    for (let p of profitEffects) {
-        fill(255, 255, 0, p.alpha);
-        textSize(24);
-        text(p.text, p.x, p.y);
-        p.y -= 1;
-        p.alpha -= 4;
-    }
-}
-
-// ======================================================
-// UI
-// ======================================================
-function updateUI() {
-    fill(255);
-    textSize(32);
-    text("Money : " + money, width - 150, 40);
-}
-
-// ======================================================
-function windowResized() { resizeCanvas(windowWidth, windowHeight); }
 
 </script>
-
 </body>
 </html>
