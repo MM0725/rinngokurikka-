@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - 統合完全版</title>
+<title>リンゴの木クリッカー - 統合版アスペクト比保持</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <style>
 html,body { margin:0; padding:0; height:100%; background:#87CEEB; overflow:hidden; }
@@ -32,8 +32,8 @@ canvas { display:block; }
   <button id="hireBtn">従業員雇用 (<span id="hirePrice">100</span>円)</button>
   <button id="speedUpBtn">販売スピードUP (<span id="speedUpPrice">100</span>円)</button>
   <button id="profitUpBtn">販売利益UP (<span id="profitUpPrice">100</span>円)</button>
-  <button id="npcSpeedBtn">NPC速度UP (<span id="npcSpeedPrice">100</span>円)</button>
-  <button id="sellAmountUpBtn">一度に販売個数UP (<span id="sellAmountPrice">100</span>円)</button>
+  <button id="npcSpeedBtn">NPC速度UP (<span id="npcSpeedPrice">100</span>)</button>
+  <button id="sellAmountUpBtn">一度に販売個数UP (<span id="sellAmountPrice">100</span>)</button>
 </div>
 
 <div id="nameModal">
@@ -67,9 +67,9 @@ let sellAmountPrice=100;
 
 // 木画像
 let treeImg;
-let treeX, treeY, treeW=200, treeH=400;
+let treeX, treeY;
+let maxTreeW=200; // 幅基準でサイズ調整
 
-// ─── ユーティリティ ────────────
 function disableActionButtons(flag){
   document.querySelectorAll('#actions button').forEach(btn => btn.disabled=flag);
 }
@@ -82,11 +82,9 @@ function setup(){
   stallX = width*0.82;
   stallY = groundY - 20;
   treeX = width*0.28;
-  treeY = groundY - treeH/2;
-
+  treeY = groundY - 100; // 初期Y（高さはdrawTreeで調整）
   for(let i=0;i<14;i++) spawnAppleOnTree();
 
-  // イベント登録
   document.getElementById('hireBtn').addEventListener('click',hireEmployee);
   document.getElementById('tierUpBtn').addEventListener('click',increaseTierChance);
   document.getElementById('speedUpBtn').addEventListener('click',decreaseSellInterval);
@@ -107,7 +105,7 @@ function windowResized(){
   stallX = width*0.82;
   stallY = groundY - 20;
   treeX = width*0.28;
-  treeY = groundY - treeH/2;
+  treeY = groundY - 100;
 }
 
 function draw(){
@@ -117,7 +115,20 @@ function draw(){
 }
 
 function drawGround(){ fill(90,60,40); rect(0,groundY,width,height-groundY); }
-function drawTree(){ if(treeImg) imageMode(CENTER), image(treeImg, treeX, treeY, treeW, treeH); else fill(34,139,34), rect(treeX-30, treeY-200, 60, 400); }
+
+function drawTree(){
+  if(treeImg){
+    imageMode(CENTER);
+    let aspect = treeImg.height / treeImg.width; // 縦横比
+    let displayW = maxTreeW;
+    let displayH = displayW * aspect;
+    image(treeImg, treeX, groundY - displayH/2, displayW, displayH);
+  } else {
+    fill(34,139,34);
+    rect(treeX-30, groundY-200, 60, 400);
+  }
+}
+
 function drawStall(){ fill(150,75,0); rect(stallX-40, stallY-20, 80, 40, 5); fill(255,0,0); triangle(stallX-50, stallY-20, stallX+50, stallY-20, stallX, stallY-60); }
 
 function drawApples(){
@@ -135,9 +146,9 @@ function spawnAppleOnTree(){
   if(p<tierBase.red) tier=0;
   else if(p<tierBase.red+tierBase.yellow) tier=1;
   else tier=2;
-  let rx=random(-treeW/2+20, treeW/2-20);
-  let ry=random(-treeH/2+20, -20);
-  apples.push({x:treeX+rx, y:treeY+ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
+  let rx=random(-maxTreeW*0.5, maxTreeW*0.5);
+  let ry=random(-maxTreeW, 0);
+  apples.push({x:treeX+rx, y:groundY+ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
 }
 
 function mousePressed(){
@@ -160,95 +171,37 @@ function updatePhysics(){
   }
 }
 
-// ─── NPC関連 ───────────────
-function hireEmployee(){
-  let price=Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
-  if(money>=price){
-    money-=price; upgradeCounts.hire++;
-    if(skipNameInput) createNPC(`NPC${hiredCount+1}`);
-    else { pendingHire=true; disableActionButtons(true); document.getElementById('nameModal').style.display='block'; document.getElementById('npcNameInput').value=''; }
-    updateUI();
-  }
-}
+// ─── NPC・UI関連は以前の統合版と同じ ───────────────
+function hireEmployee(){ let price=Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
+if(money>=price){ money-=price; upgradeCounts.hire++; if(skipNameInput) createNPC(`NPC${hiredCount+1}`); else{ pendingHire=true; disableActionButtons(true); document.getElementById('nameModal').style.display='block'; document.getElementById('npcNameInput').value=''; } updateUI(); } }
 
-function finishNPCName(ok){
-  let name = ok ? document.getElementById('npcNameInput').value.trim() : `NPC${hiredCount+1}`;
-  if(name==='') name=`NPC${hiredCount+1}`;
-  if(pendingHire){ createNPC(name); pendingHire=false; disableActionButtons(false); document.getElementById('nameModal').style.display='none'; }
-}
+function finishNPCName(ok){ let name = ok ? document.getElementById('npcNameInput').value.trim() : `NPC${hiredCount+1}`;
+if(name==='') name=`NPC${hiredCount+1}`;
+if(pendingHire){ createNPC(name); pendingHire=false; disableActionButtons(false); document.getElementById('nameModal').style.display='none'; } }
 
-function createNPC(name){
-  npcs.push({x:treeX,y:groundY-20,state:'idle',targetIdx:-1,carryTier:null,speed:2,homeX:treeX,homeY:groundY-20,name:name});
-  hiredCount++; updateUI();
-}
+function createNPC(name){ npcs.push({x:treeX,y:groundY-20,state:'idle',targetIdx:-1,carryTier:null,speed:2,homeX:treeX,homeY:groundY-20,name:name}); hiredCount++; updateUI(); }
 
-function increaseTierChance(){
-  let price=Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
-  if(money>=price){ money-=price; upgradeCounts.tier++; tierBoost+=0.01; tierBase.red=Math.max(0.6,1-tierBoost*2); tierBase.yellow=Math.min(0.35,tierBoost); tierBase.gold=Math.min(0.1,tierBoost); updateUI(); }
-}
+function increaseTierChance(){ let price=Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier)); if(money>=price){ money-=price; upgradeCounts.tier++; tierBoost+=0.01; tierBase.red=Math.max(0.6,1-tierBoost*2); tierBase.yellow=Math.min(0.35,tierBoost); tierBase.gold=Math.min(0.1,tierBoost); updateUI(); } }
 
-function decreaseSellInterval(){ let price=Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed));
-  if(money>=price){ money-=price; upgradeCounts.speed++; sellInterval=Math.max(500,sellInterval-200); updateUI(); }
-}
+function decreaseSellInterval(){ let price=Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed)); if(money>=price){ money-=price; upgradeCounts.speed++; sellInterval=Math.max(500,sellInterval-200); updateUI(); } }
 
-function increaseSellProfit(){ let price=Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit));
-  if(money>=price){ money-=price; upgradeCounts.profit++; sellProfitMult*=1.2; updateUI(); }
-}
+function increaseSellProfit(){ let price=Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit)); if(money>=price){ money-=price; upgradeCounts.profit++; sellProfitMult*=1.2; updateUI(); } }
 
-function increaseNPCSpeed(){ let price=Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed));
-  if(money>=price){ money-=price; upgradeCounts.npcSpeed++; for(let n of npcs) n.speed+=0.5; updateUI(); }
-}
+function increaseNPCSpeed(){ let price=Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed)); if(money>=price){ money-=price; upgradeCounts.npcSpeed++; for(let n of npcs) n.speed+=0.5; updateUI(); } }
 
 function increaseSellAmount(){ if(money>=sellAmountPrice){ money-=sellAmountPrice; sellAmountPerTick++; sellAmountPrice=Math.floor(sellAmountPrice*1.2); document.getElementById('sellAmountPrice').innerText=sellAmountPrice; } }
 
-function drawNPCs(){
-  for(let n of npcs){
-    push();
-    translate(n.x,n.y);
-    fill(0,0,0,60); ellipse(0,22,32,10);
-    fill(220,200,180); rect(-9,-18,18,26,6);
-    fill(255,220,180); ellipse(0,-28,24,24);
-    fill(0); ellipse(-4,-30,3,3); ellipse(4,-30,3,3);
-    if(n.carryTier!==null){ let rgb=TIERS[n.carryTier].rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(0,-6,12,12); }
-    fill(255); textSize(12); text(n.name,0,-40);
-    pop();
-  }
-}
+function drawNPCs(){ for(let n of npcs){ push(); translate(n.x,n.y); fill(0,0,0,60); ellipse(0,22,32,10); fill(220,200,180); rect(-9,-18,18,26,6); fill(255,220,180); ellipse(0,-28,24,24); fill(0); ellipse(-4,-30,3,3); ellipse(4,-30,3,3); if(n.carryTier!==null){ let rgb=TIERS[n.carryTier].rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(0,-6,12,12); } fill(255); textSize(12); text(n.name,0,-40); pop(); } }
 
-function updateNPCs(){
-  for(let n of npcs){
-    if(n.state==='idle'){ let idx=findNearestGroundAppleIdx(n.x,n.y); if(idx!==-1){ n.targetIdx=idx; n.state='toApple'; } }
-    else if(n.state==='toApple'){
-      if(n.targetIdx<0 || n.targetIdx>=apples.length || apples[n.targetIdx].state!=='onGround'){ n.state='idle'; n.targetIdx=-1; continue; }
-      let a = apples[n.targetIdx]; moveToward(n,a.x,a.y);
-      if(dist(n.x,n.y,a.x,a.y)<18){ n.carryTier=a.tier; a.state='picked'; n.targetIdx=-1; n.state='toStall'; }
-    }
-    else if(n.state==='toStall'){ moveToward(n, stallX, stallY);
-      if(dist(n.x,n.y,stallX,stallY)<20 && n.carryTier!==null){ stallInventory[TIERS[n.carryTier].key]++; n.carryTier=null; n.state='idle'; }
-    }
-  }
-}
+function updateNPCs(){ for(let n of npcs){ if(n.state==='idle'){ let idx=findNearestGroundAppleIdx(n.x,n.y); if(idx!==-1){ n.targetIdx=idx; n.state='toApple'; } } else if(n.state==='toApple'){ if(n.targetIdx<0||n.targetIdx>=apples.length||apples[n.targetIdx].state!=='onGround'){ n.state='idle'; n.targetIdx=-1; continue; } let a=apples[n.targetIdx]; moveToward(n,a.x,a.y); if(dist(n.x,n.y,a.x,a.y)<18){ n.carryTier=a.tier; a.state='picked'; n.targetIdx=-1; n.state='toStall'; } } else if(n.state==='toStall'){ moveToward(n,stallX,stallY); if(dist(n.x,n.y,stallX,stallY)<20&&n.carryTier!==null){ stallInventory[TIERS[n.carryTier].key]++; n.carryTier=null; n.state='idle'; } } } }
 
 function moveToward(e,tx,ty){ let ang=atan2(ty-e.y,tx-e.x); e.x+=cos(ang)*e.speed; e.y+=sin(ang)*e.speed; }
 
-function autoSell(){
-  for(let t of TIERS){
-    let sellNum=Math.min(stallInventory[t.key],sellAmountPerTick);
-    if(sellNum>0){ let profit=Math.floor(t.value*sellNum*sellProfitMult); money+=profit; profitEffects.push({x:stallX,y:stallY-30,value:profit,life:60}); stallInventory[t.key]-=sellNum; }
-  }
-}
+function autoSell(){ for(let t of TIERS){ let sellNum=Math.min(stallInventory[t.key],sellAmountPerTick); if(sellNum>0){ let profit=Math.floor(t.value*sellNum*sellProfitMult); money+=profit; profitEffects.push({x:stallX,y:stallY-30,value:profit,life:60}); stallInventory[t.key]-=sellNum; } } }
 
-function drawProfitEffects(){
-  for(let i=profitEffects.length-1;i>=0;i--){
-    let p=profitEffects[i]; fill(255,255,0); textSize(16); text(`+${p.value}円`,p.x,p.y); p.y-=1; p.life--; if(p.life<=0) profitEffects.splice(i,1);
-  }
-}
+function drawProfitEffects(){ for(let i=profitEffects.length-1;i>=0;i--){ let p=profitEffects[i]; fill(255,255,0); textSize(16); text(`+${p.value}円`,p.x,p.y); p.y-=1; p.life--; if(p.life<=0) profitEffects.splice(i,1); } }
 
-function findNearestGroundAppleIdx(px,py){
-  let best=-1,bestd=Infinity;
-  for(let i=0;i<apples.length;i++){ if(apples[i].state==='onGround'){ let d=dist(px,py,apples[i].x,apples[i].y); if(d<bestd){bestd=d;best=i;} } }
-  return best;
-}
+function findNearestGroundAppleIdx(px,py){ let best=-1,bestd=Infinity; for(let i=0;i<apples.length;i++){ if(apples[i].state==='onGround'){ let d=dist(px,py,apples[i].x,apples[i].y); if(d<bestd){bestd=d;best=i;} } } return best; }
 
 function updateUI(){
   document.getElementById('counts').innerText=`赤:${stallInventory.red}　黄:${stallInventory.yellow}　金:${stallInventory.gold}`;
