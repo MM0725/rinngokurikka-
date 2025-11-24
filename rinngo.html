@@ -69,7 +69,7 @@ let sellAmountPrice=100;
 let treeImg;
 let treeX, treeY, treeW=200, treeH=400;
 
-// ▼ 追加：購入ボタンを一括で有効/無効化する関数
+// ▼ ボタン一括無効化
 function disableActionButtons(flag){
   const buttons = document.querySelectorAll('#actions button');
   buttons.forEach(btn => btn.disabled = flag);
@@ -77,9 +77,9 @@ function disableActionButtons(flag){
 
 // 画像読み込み
 function preload(){
-  treeImg = loadImage('images/wood.png', 
-      () => console.log("木画像読み込み成功"),
-      () => console.error("木画像読み込み失敗")
+  treeImg = loadImage('images/wood.png',
+      ()=>console.log("木画像読み込み成功"),
+      ()=>console.error("木画像読み込み失敗")
   );
 }
 
@@ -129,6 +129,7 @@ function draw(){
   updateUI();
 }
 
+// ─── 描画関数 ─────────────────────
 function drawGround(){ fill(90,60,40); rect(0,groundY,width,height-groundY); }
 
 function drawTree(){
@@ -137,23 +138,42 @@ function drawTree(){
     image(treeImg, treeX, treeY, treeW, treeH);
   } else {
     fill(34,139,34);
-    rect(treeX-30, treeY-200, 60, 400); // 読み込み失敗時の簡易木
+    rect(treeX-30, treeY-200, 60, 400);
   }
 }
 
-// リンゴ生成範囲も木に合わせる
+function drawStall(){
+  fill(150,75,0);
+  rect(stallX-40, stallY-20, 80, 40, 5);
+  fill(255,0,0);
+  triangle(stallX-50, stallY-20, stallX+50, stallY-20, stallX, stallY-60);
+}
+
+function drawApples(){
+  for(let a of apples){
+    if(a.state!=='picked'){
+      let rgb = TIERS[a.tier].rgb;
+      fill(rgb[0],rgb[1],rgb[2]);
+      ellipse(a.x, a.y, 34, 34);
+      fill(255,255,255,80);
+      ellipse(a.x-6, a.y-6, 8, 6);
+    }
+  }
+}
+
+// ─── リンゴ座標生成 ─────────────────
 function spawnAppleOnTree(){
   let p=random(), tier;
   if(p<tierBase.red) tier=0;
   else if(p<tierBase.red+tierBase.yellow) tier=1;
   else tier=2;
   let rx=random(-treeW/2+20, treeW/2-20);
-  let ry=random(-treeH/2+30, treeH/2-20);
+  let ry=random(-treeH/2+30, -30);
   apples.push({x:treeX+rx, y:treeY+ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
 }
 
-// 以下、NPC・UI・自動販売などの既存統合コードをそのまま使用
-// (上で提供した統合版のコードをこの下にコピーして挿入してください)
+// 以下、元のNPC・UI・自動販売ロジック（updateNPCs, autoSell, hireEmployeeなど）を
+// そのまま統合して貼り付ければ完成です。
 
 </script>
 </body>
