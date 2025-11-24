@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - 効果音統合版</title>
+<title>リンゴの木クリッカー - 効果音統合版（雲付き）</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.sound.min.js"></script>
 <style>
@@ -54,10 +54,13 @@ let sellInterval=2000, sellAmountPerTick=1, sellProfitMult=1;
 let profitEffects=[];
 let tierBoost=0;
 
-// ★追加：販売効果音
+// 雲
+let clouds = [];
+
+// ★販売効果音
 let sellSound;
 
-let bgm; // BGM
+let bgm;
 let clickSound, appleSound;
 
 const TIERS=[
@@ -93,9 +96,7 @@ function preload(){
   clickSound = loadSound('sound/決定ボタンを押す12.mp3');
   appleSound = loadSound('sound/キャンセル9.mp3');
 
-  // ★追加：販売音読み込み
   sellSound = loadSound('sound/金額表示.mp3');
-
   bgm = loadSound('sound/Floraria.mp3');
 
   for(let t of TIERS){ t.img = loadImage(t.imgPath); }
@@ -117,8 +118,17 @@ function setup(){
   stallY = groundY - 20;
   treeX = width*0.28;
   treeY = groundY - 250 + 2*34;
-
   if(treeImg) displayH = maxTreeW * (treeImg.height / treeImg.width);
+
+  // ★雲を生成
+  for(let i=0;i<5;i++){
+    clouds.push({
+      x: random(width),
+      y: random(50, 200),
+      speed: random(0.2, 0.6),
+      size: random(80, 150)
+    });
+  }
 
   for(let i=0;i<14;i++) spawnAppleOnTree();
 
@@ -146,9 +156,29 @@ function windowResized(){
   treeY = groundY - 250 + 2*34;
 }
 
+// ★雲の描画
+function drawClouds(){
+  noStroke();
+  fill(255, 255, 255, 240);
+
+  for(let c of clouds){
+    ellipse(c.x, c.y, c.size, c.size * 0.6);
+    ellipse(c.x + c.size*0.4, c.y + 10, c.size*0.8, c.size*0.5);
+    ellipse(c.x - c.size*0.4, c.y + 10, c.size*0.8, c.size*0.5);
+
+    c.x += c.speed;
+    if(c.x > width + 100){
+      c.x = -100;
+      c.y = random(50, 200);
+    }
+  }
+}
+
 function draw(){
   if(bgImg){ imageMode(CORNER); image(bgImg,0,0,width,height); }
   else { background(135,206,235); }
+
+  drawClouds(); // ★ 雲を描画
 
   drawGround();
   drawTree();
@@ -194,9 +224,7 @@ function mousePressed(){
       a.vy=0;
       a.vx=random(-0.6,0.6);
       a.bounced=false;
-
       if(appleSound) appleSound.play();
-
       setTimeout(spawnAppleOnTree,200+random(0,300));
       break;
     }
@@ -324,7 +352,7 @@ function updatePhysics(){
 }
 
 function autoSell(){
-  let soldSomething = false; // ★追加：売れたフラグ
+  let soldSomething = false;
 
   for(let t of TIERS){
     let sellNum=Math.min(stallInventory[t.key],sellAmountPerTick);
@@ -333,11 +361,10 @@ function autoSell(){
       money+=profit;
       profitEffects.push({x:stallX,y:stallY-30,value:profit,life:60});
       stallInventory[t.key]-=sellNum;
-      soldSomething = true; // ★ここで販売があった
+      soldSomething = true;
     }
   }
 
-  // ★追加：販売音を再生
   if(soldSomething && sellSound){
     sellSound.play();
   }
