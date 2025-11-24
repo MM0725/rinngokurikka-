@@ -2,429 +2,170 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - 効果音統合版</title>
+<title>リンゴの木クリッカー</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.sound.min.js"></script>
 <style>
-html,body { margin:0; padding:0; height:100%; background:#87CEEB; overflow:hidden; }
+html,body { margin:0; padding:0; overflow:hidden; background:#87CEEB; }
 canvas { display:block; }
-#ui { position:absolute; left:12px; top:10px; color:#fff; font-family:sans-serif; text-shadow:0 0 6px #0008; z-index:20; }
-#counts { font-size:20px; }
-#money { position:absolute; top:10px; right:10px; font-size:24px; font-weight:bold; color:#fff; text-shadow:0 0 6px #0008; z-index:20; }
-#money span { margin-left:8px; }
-#actions { position:absolute; top:60px; right:10px; z-index:20; text-align:right; }
-#actions button { background:#333; color:#fff; border:none; padding:10px; border-radius:8px; cursor:pointer; margin-bottom:6px; display:block; width:250px; font-size:16px; }
-#skipSwitch { position:absolute; top:10px; right:280px; color:#fff; font-size:14px; z-index:25; }
-#nameModal { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#222; color:#fff; padding:20px; border-radius:10px; z-index:30; }
-#nameModal input { width:200px; padding:5px; margin-top:10px; font-size:16px; }
-#nameModal button { padding:5px 10px; margin-top:10px; }
 </style>
 </head>
 <body>
 
-<div id="ui"><div id="counts">赤:0　金:0　虹:0</div></div>
-<div id="money">所持金: <span id="moneyVal">1000</span>円 <span id="npcCount">NPC:0</span></div>
-
-<div id="skipSwitch">
-  <label><input type="checkbox" id="skipNameInput"> 名前入力をスキップ</label>
-</div>
-
-<div id="actions">
-  <button id="tierUpBtn">高ティア確率UP (<span id="tierUpPrice">100</span>円)</button>
-  <button id="hireBtn">従業員雇用 (<span id="hirePrice">100</span>円)</button>
-  <button id="speedUpBtn">販売スピードUP (<span id="speedUpPrice">100</span>円)</button>
-  <button id="profitUpBtn">販売利益UP (<span id="profitUpPrice">100</span>)</button>
-  <button id="npcSpeedBtn">NPC速度UP (<span id="npcSpeedPrice">100</span>)</button>
-  <button id="sellAmountUpBtn">一度に販売個数UP (<span id="sellAmountPrice">100</span>)</button>
-</div>
-
-<div id="nameModal">
-  <div>NPCの名前を入力してください</div>
-  <input type="text" id="npcNameInput" placeholder="NPC名">
-  <br>
-  <button id="npcNameOk">OK</button>
-  <button id="npcNameCancel">キャンセル</button>
-</div>
-
 <script>
-let apples=[], npcs=[], groundY;
-let money=1000, hiredCount=0;
-let stallInventory={red:0,gold:0,rainbow:0};
-let sellInterval=2000, sellAmountPerTick=1, sellProfitMult=1;
-let profitEffects=[];
-let tierBoost=0;
 
-let bgm; // ★ BGM 用
+// =======================
+//      画像・音
+// =======================
+let treeImg, stallImg, bgImg;
 
-const TIERS=[
-  { key:'red', value:20, rgb:[230,60,60], imgPath:'images/akairo.png', img:null },
-  { key:'gold', value:60, rgb:[240,220,60], imgPath:'images/kinniro.png', img:null },
-  { key:'rainbow', value:200, rgb:[200,100,255], imgPath:'images/niiiro.png', img:null }
-];
-let tierBase={red:1.0,gold:0,rainbow:0};
+// 効果音
+let clickSound;
+let appleSound;
+let sellSound;   // ←追加
+let bgm;
 
-let upgradeCounts={tier:0,hire:0,speed:0,profit:0,npcSpeed:0};
-let basePrices={tier:100,hire:100,speed:100,profit:100,npcSpeed:100,sellAmount:100};
-let growthRate=1.2;
-let hireGrowthRate=1.1;
-let npcSpeedGrowth=1.2;
-let skipNameInput=false;
-let pendingHire=false;
+// =======================
+//       ゲーム変数
+// =======================
+let apples = 0;
+let money = 0;
+let applePrice = 1;
+
+let groundY;
+let treeX, treeY;
 
 let stallX, stallY;
-let sellAmountPrice=100;
 
-let treeImg, treeX, treeY, maxTreeW=600, displayH;
-let stallImg, bgImg;
+let fallingApples = [];
 
-let clickSound, appleSound;
-
-function disableActionButtons(flag){ document.querySelectorAll('#actions button').forEach(btn => btn.disabled=flag); }
-
+// =======================
+//        preload
+// =======================
 function preload(){
+
   treeImg = loadImage('images/wood.png');
   stallImg = loadImage('images/yasai_mujin_hanbaijo.png');
   bgImg = loadImage('images/kabegami.webp');
 
   clickSound = loadSound('sound/決定ボタンを押す12.mp3');
   appleSound = loadSound('sound/キャンセル9.mp3');
-
-  bgm = loadSound('sound/Floraria.mp3'); // ★ BGM 読み込み
-
-  for(let t of TIERS){ t.img = loadImage(t.imgPath); }
+  sellSound = loadSound('sound/金額表示.mp3');  // ←販売時SE追加
+  bgm = loadSound('sound/Floraria.mp3');          // BGM
 }
 
-function setup(){
+// =======================
+//        setup
+// =======================
+function setup() {
   createCanvas(windowWidth, windowHeight);
+  groundY = height * 0.85;
 
-  // ★ BGM 再生（最初のユーザー操作後）
-  userStartAudio().then(()=>{
-    if(bgm && !bgm.isPlaying()){
+  // BGM 再生準備
+  userStartAudio().then(() => {
+    if (bgm && !bgm.isPlaying()) {
       bgm.setLoop(true);
       bgm.setVolume(0.4);
       bgm.play();
     }
   });
 
-  groundY = height * 0.85;
+  treeX = width * 0.5;
+  treeY = groundY - 250;
+
   stallX = width * 0.82;
-  stallY = groundY - 20;
-  treeX = width*0.28;
-  treeY = groundY - 250 + 2*34;
-
-  if(treeImg) displayH = maxTreeW * (treeImg.height / treeImg.width);
-
-  for(let i=0;i<14;i++) spawnAppleOnTree();
-
-  document.getElementById('hireBtn').addEventListener('click', ()=>{ if(clickSound) clickSound.play(); hireEmployee(); });
-  document.getElementById('tierUpBtn').addEventListener('click', ()=>{ if(clickSound) clickSound.play(); increaseTierChance(); });
-  document.getElementById('speedUpBtn').addEventListener('click', ()=>{ if(clickSound) clickSound.play(); decreaseSellInterval(); });
-  document.getElementById('profitUpBtn').addEventListener('click', ()=>{ if(clickSound) clickSound.play(); increaseSellProfit(); });
-  document.getElementById('npcSpeedBtn').addEventListener('click', ()=>{ if(clickSound) clickSound.play(); increaseNPCSpeed(); });
-  document.getElementById('sellAmountUpBtn').addEventListener('click', ()=>{ if(clickSound) clickSound.play(); increaseSellAmount(); });
-
-  document.getElementById('skipNameInput').addEventListener('change',()=>skipNameInput=document.getElementById('skipNameInput').checked);
-  document.getElementById('npcNameOk').addEventListener('click',()=>finishNPCName(true));
-  document.getElementById('npcNameCancel').addEventListener('click',()=>finishNPCName(false));
-
-  setInterval(autoSell, sellInterval);
-  updateUI();
+  stallY = groundY - 150;
 }
 
-function windowResized(){
-  resizeCanvas(windowWidth, windowHeight);
-  groundY = height * 0.85;
-  stallX = width * 0.82;
-  stallY = groundY - 20;
-  treeX = width*0.28;
-  treeY = groundY - 250 + 2*34;
+// =======================
+//        draw
+// =======================
+function draw() {
+  background(135, 206, 235);
+
+  if (bgImg) image(bgImg, 0, 0, width, height);
+
+  // 木
+  image(treeImg, treeX - 150, treeY - 200, 300, 300);
+
+  // 販売所
+  image(stallImg, stallX - 120, stallY - 150, 240, 240);
+
+  // 落下リンゴ
+  for (let a of fallingApples) {
+    fill(255, 0, 0);
+    ellipse(a.x, a.y, 40, 40);
+    a.y += a.speed;
+  }
+  fallingApples = fallingApples.filter(a => a.y < height + 50);
+
+  // UI
+  fill(255);
+  rect(10, 10, 260, 90, 10);
+
+  fill(0);
+  textSize(22);
+  text(`🍎リンゴ：${apples}`, 20, 45);
+  text(`💰お金：${money}`, 20, 80);
+
+  // 販売ボタン
+  drawButton(width - 160, 20, 140, 50, "販売する");
 }
 
-function draw(){
-  if(bgImg){ imageMode(CORNER); image(bgImg,0,0,width,height); }
-  else { background(135,206,235); }
+// =======================
+//       販売処理
+// =======================
+function sellApples(){
+  if (apples > 0) {
+    money += apples * applePrice;
+    apples = 0;
 
-  drawGround();
-  drawTree();
-  drawStall();
-  drawApples();
-  drawNPCs();
-  drawProfitEffects();
-  updatePhysics();
-  updateNPCs();
-  updateUI();
-}
-
-function drawGround(){ fill(90,60,40); rect(0, groundY, width, height-groundY); }
-function drawTree(){ if(treeImg){ imageMode(CENTER); image(treeImg, treeX, treeY, maxTreeW, displayH); } }
-function drawStall(){ if(stallImg){ imageMode(CENTER); image(stallImg, stallX, stallY - 50, 100*2.5, 100*2.5); } }
-
-function drawApples(){
-  for(let a of apples){
-    if(a.state!=='picked'){
-      let t=TIERS[a.tier];
-      if(t.img){ imageMode(CENTER); image(t.img,a.x,a.y,34,34); }
-      else { let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(a.x,a.y,34,34); }
+    // 販売効果音（今回追加）
+    if (sellSound) {
+      sellSound.setVolume(0.8);
+      sellSound.play();
     }
   }
 }
 
-function spawnAppleOnTree(){
-  let p=random(), tier;
-  if(p<tierBase.red) tier=0;
-  else if(p<tierBase.red+tierBase.gold) tier=1;
-  else tier=2;
-
-  let rx=random(-maxTreeW*0.3,maxTreeW*0.3);
-  let ry=random(treeY - displayH*0.5 + 4*34, treeY - displayH*0.25 + 4*34);
-
-  apples.push({x:treeX+rx, y:ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
+// =======================
+//     ボタン描画
+// =======================
+function drawButton(x, y, w, h, label) {
+  fill(255);
+  rect(x, y, w, h, 10);
+  fill(0);
+  textSize(20);
+  text(label, x + 20, y + 33);
 }
 
-function mousePressed(){
-  for(let a of apples){
-    if(a.state==='onTree' && dist(mouseX,mouseY,a.x,a.y)<22){
-      a.state='falling';
-      a.vy=0;
-      a.vx=random(-0.6,0.6);
-      a.bounced=false;
+// =======================
+//     タップ処理
+// =======================
+function mousePressed() {
 
-      if(appleSound) appleSound.play();
+  // 木をタップ → リンゴ落下
+  let d = dist(mouseX, mouseY, treeX, treeY);
+  if (d < 150) {
+    apples++;
+    appleSound.play();
 
-      setTimeout(spawnAppleOnTree,200+random(0,300));
-      break;
-    }
+    fallingApples.push({
+      x: treeX + random(-80, 80),
+      y: treeY,
+      speed: random(6, 10)
+    });
+  }
+
+  // 販売ボタン
+  if (mouseX > width - 160 && mouseX < width - 20 &&
+      mouseY > 20 && mouseY < 70) {
+
+    clickSound.play();
+    sellApples();
   }
 }
 
-function hireEmployee(){
-  let price=Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
-  if(money>=price){
-    money-=price;
-    upgradeCounts.hire++;
-
-    if(skipNameInput){
-      createNPC(`NPC${hiredCount+1}`);
-    } else {
-      pendingHire=true;
-      disableActionButtons(true);
-      document.getElementById('nameModal').style.display='block';
-      document.getElementById('npcNameInput').value='';
-    }
-
-    updateUI();
-  }
-}
-
-function finishNPCName(ok){
-  let name=ok?document.getElementById('npcNameInput').value.trim():`NPC${hiredCount+1}`;
-  if(name==='') name=`NPC${hiredCount+1}`;
-
-  if(pendingHire){
-    createNPC(name);
-    pendingHire=false;
-    disableActionButtons(false);
-    document.getElementById('nameModal').style.display='none';
-  }
-}
-
-function createNPC(name){
-  npcs.push({x:treeX,y:groundY-20,state:'idle',targetIdx:-1,carryTier:null,speed:2,homeX:treeX,homeY:groundY-20,name:name});
-  hiredCount++;
-  updateUI();
-}
-
-function drawNPCs(){
-  for(let n of npcs){
-    push();
-    translate(n.x,n.y);
-    fill(0,0,0,60); ellipse(0,22,32,10);
-    fill(220,200,180); rect(-9,-18,18,26,6);
-    fill(255,220,180); ellipse(0,-28,24,24);
-    fill(0); ellipse(-4,-30,3,3); ellipse(4,-30,3,3);
-
-    if(n.carryTier!==null){
-      let t=TIERS[n.carryTier];
-      if(t.img){ imageMode(CENTER); image(t.img,0,-6,20,20); }
-      else { let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(0,-6,12,12); }
-    }
-
-    fill(255); textSize(12); text(n.name,0,-40);
-    pop();
-  }
-}
-
-function updateNPCs(){
-  for(let n of npcs){
-    if(n.state==='idle'){
-      let idx=findNearestGroundAppleIdx(n.x,n.y);
-      if(idx!==-1){
-        n.targetIdx=idx;
-        n.state='toApple';
-      }
-    }
-    else if(n.state==='toApple'){
-      if(n.targetIdx<0 || n.targetIdx>=apples.length || apples[n.targetIdx].state!=='onGround'){
-        n.state='idle';
-        n.targetIdx=-1;
-        continue;
-      }
-      let a=apples[n.targetIdx];
-      moveToward(n,a.x,a.y);
-
-      if(dist(n.x,n.y,a.x,a.y)<18){
-        n.carryTier=a.tier;
-        a.state='picked';
-        n.targetIdx=-1;
-        n.state='toStall';
-      }
-    }
-    else if(n.state==='toStall'){
-      moveToward(n,stallX,stallY);
-
-      if(dist(n.x,n.y,stallX,stallY)<20 && n.carryTier!==null){
-        stallInventory[TIERS[n.carryTier].key]++;
-        n.carryTier=null;
-        n.state='idle';
-      }
-    }
-  }
-}
-
-function moveToward(e,tx,ty){
-  let ang=atan2(ty-e.y,tx-e.x);
-  e.x+=cos(ang)*e.speed;
-  e.y+=sin(ang)*e.speed;
-}
-
-function updatePhysics(){
-  for(let a of apples){
-    if(a.state==='falling'){
-      a.vy+=0.8;
-      a.y+=a.vy;
-      a.x+=a.vx;
-
-      if(!a.bounced && a.y>=groundY-17){
-        a.bounced=true;
-        a.vy=-10;
-        a.y=groundY-17;
-      }
-      else if(a.bounced && a.y>=groundY-17){
-        a.state='onGround';
-        a.vy=0;
-        a.vx=0;
-      }
-    }
-  }
-}
-
-function autoSell(){
-  for(let t of TIERS){
-    let sellNum=Math.min(stallInventory[t.key],sellAmountPerTick);
-    if(sellNum>0){
-      let profit=Math.floor(t.value*sellNum*sellProfitMult);
-      money+=profit;
-      profitEffects.push({x:stallX,y:stallY-30,value:profit,life:60});
-      stallInventory[t.key]-=sellNum;
-    }
-  }
-}
-
-function drawProfitEffects(){
-  for(let i=profitEffects.length-1;i>=0;i--){
-    let p=profitEffects[i];
-    fill(255,255,0);
-    textSize(16);
-    text(`+${p.value}円`,p.x,p.y);
-    p.y-=1;
-    p.life--;
-
-    if(p.life<=0) profitEffects.splice(i,1);
-  }
-}
-
-function increaseTierChance(){
-  let price=Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
-  if(money>=price){
-    money-=price;
-    upgradeCounts.tier++;
-
-    tierBoost+=0.01;
-    tierBase.red=Math.max(0.6,1-tierBoost*2);
-    tierBase.gold=Math.min(0.35,tierBoost);
-    tierBase.rainbow=Math.min(0.1,tierBoost);
-
-    updateUI();
-  }
-}
-
-function decreaseSellInterval(){
-  let price=Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed));
-  if(money>=price){
-    money-=price;
-    upgradeCounts.speed++;
-    sellInterval=Math.max(500,sellInterval-200);
-    updateUI();
-  }
-}
-
-function increaseSellProfit(){
-  let price=Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit));
-  if(money>=price){
-    money-=price;
-    upgradeCounts.profit++;
-    sellProfitMult*=1.2;
-    updateUI();
-  }
-}
-
-function increaseNPCSpeed(){
-  let price=Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed));
-  if(money>=price){
-    money-=price;
-    upgradeCounts.npcSpeed++;
-    for(let n of npcs) n.speed+=0.5;
-    updateUI();
-  }
-}
-
-function increaseSellAmount(){
-  if(money>=sellAmountPrice){
-    money-=sellAmountPrice;
-    sellAmountPerTick++;
-    sellAmountPrice=Math.floor(sellAmountPrice*1.2);
-    document.getElementById('sellAmountPrice').innerText=sellAmountPrice;
-  }
-}
-
-function findNearestGroundAppleIdx(px,py){
-  let best=-1,bestd=Infinity;
-  for(let i=0;i<apples.length;i++){
-    if(apples[i].state==='onGround'){
-      let d=dist(px,py,apples[i].x,apples[i].y);
-      if(d<bestd){ bestd=d; best=i; }
-    }
-  }
-  return best;
-}
-
-function updateUI(){
-  document.getElementById('counts').innerText=
-    `赤:${stallInventory.red}　金:${stallInventory.gold}　虹:${stallInventory.rainbow}`;
-  document.getElementById('moneyVal').innerText=money.toLocaleString();
-  document.getElementById('npcCount').innerText=`NPC:${hiredCount}`;
-
-  document.getElementById('tierUpPrice').innerText=
-    Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
-  document.getElementById('hirePrice').innerText=
-    Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
-  document.getElementById('speedUpPrice').innerText=
-    Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed));
-  document.getElementById('profitUpPrice').innerText=
-    Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit));
-  document.getElementById('npcSpeedPrice').innerText=
-    Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed));
-}
 </script>
 
 </body>
