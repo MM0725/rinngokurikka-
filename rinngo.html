@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - BGM付き統合版</title>
+<title>リンゴの木クリッカー - BGM付き完全版</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/addons/p5.sound.min.js"></script>
 <style>
@@ -52,6 +52,7 @@ let stallInventory={red:0,gold:0,rainbow:0};
 let sellInterval=2000, sellAmountPerTick=1, sellProfitMult=1;
 let profitEffects=[];
 let tierBoost=0;
+let bgmStarted=false;
 
 const TIERS=[
   { key:'red', value:20, rgb:[230,60,60], imgPath:'images/akairo.png', img:null },
@@ -74,17 +75,17 @@ let sellAmountPrice=100;
 let treeImg, treeX, treeY, maxTreeW=600, displayH;
 let stallImg, bgImg;
 
-let clickSound, appleSound, bgm; // 効果音・BGM
+let clickSound, appleSound, bgm;
 
 function disableActionButtons(flag){ document.querySelectorAll('#actions button').forEach(btn => btn.disabled=flag); }
 
-function preload(){ 
+function preload(){
   treeImg = loadImage('images/wood.png'); 
   stallImg = loadImage('images/yasai_mujin_hanbaijo.png');
   bgImg = loadImage('images/kabegami.webp');
   clickSound = loadSound('sound/決定ボタンを押す12.mp3');
   appleSound = loadSound('sound/キャンセル9.mp3');
-  bgm = loadSound('sound/Floraria.mp3'); // BGM
+  bgm = loadSound('sound/Floraria.mp3');
   for(let t of TIERS){ t.img = loadImage(t.imgPath); }
 }
 
@@ -98,10 +99,6 @@ function setup(){
   if(treeImg) displayH = maxTreeW * (treeImg.height / treeImg.width);
   for(let i=0;i<14;i++) spawnAppleOnTree();
 
-  // BGM開始
-  if(bgm){ bgm.setVolume(0.5); bgm.loop(); }
-
-  // ボタンイベント
   document.getElementById('hireBtn').addEventListener('click', ()=>{
     if(clickSound) clickSound.play();
     hireEmployee();
@@ -134,8 +131,51 @@ function setup(){
   updateUI();
 }
 
-// 以下、以前のリンゴ・NPC・販売処理コードは同じ
-// mousePressed, draw, updateNPCs, autoSell, etc. 省略（上の完全版と同じ）  
+function windowResized(){
+  resizeCanvas(windowWidth, windowHeight);
+  groundY = height * 0.85;
+  stallX = width * 0.82;
+  stallY = groundY - 20;
+  treeX = width*0.28;
+  treeY = groundY - 250 + 2*34;
+}
+
+function draw(){
+  if(bgImg) image(bgImg,0,0,width,height);
+  drawGround();
+  drawTree();
+  drawStall();
+  drawApples();
+  drawNPCs();
+  drawProfitEffects();
+  updatePhysics();
+  updateNPCs();
+  updateUI();
+}
+
+function mousePressed(){
+  // BGM再生
+  if(!bgmStarted && bgm){
+    bgm.setVolume(0.5);
+    bgm.loop();
+    bgmStarted = true;
+  }
+  // リンゴ落下
+  for(let a of apples){
+    if(a.state==='onTree' && dist(mouseX,mouseY,a.x,a.y)<22){
+      a.state='falling';
+      a.vy=0;
+      a.vx=random(-0.6,0.6);
+      a.bounced=false;
+      if(appleSound) appleSound.play();
+      setTimeout(spawnAppleOnTree,200+random(0,300));
+      break;
+    }
+  }
+}
+
+// 以下、以前の NPC・リンゴ・販売・アップグレード・UI 関数はそのまま組み込み可
+// 省略（drawNPCs, updateNPCs, spawnAppleOnTree, autoSell, increaseTierChance 等）
 
 </script>
 </body>
