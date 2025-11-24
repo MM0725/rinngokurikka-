@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<title>リンゴの木クリッカー - 木下げ版 画像対応</title>
+<title>リンゴの木クリッカー - 木下げ版 画像対応 NPCリンゴ表示</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.2/p5.min.js"></script>
 <style>
 html,body { margin:0; padding:0; height:100%; background:#87CEEB; overflow:hidden; }
@@ -189,17 +189,36 @@ function createNPC(name){
   npcs.push({x:treeX,y:groundY-20,state:'idle',targetIdx:-1,carryTier:null,speed:2,homeX:treeX,homeY:groundY-20,name:name}); 
   hiredCount++; updateUI(); 
 }
+
 function drawNPCs(){ 
   for(let n of npcs){ 
-    push(); translate(n.x,n.y); 
+    push(); 
+    translate(n.x,n.y); 
     fill(0,0,0,60); ellipse(0,22,32,10); 
     fill(220,200,180); rect(-9,-18,18,26,6); 
     fill(255,220,180); ellipse(0,-28,24,24); 
     fill(0); ellipse(-4,-30,3,3); ellipse(4,-30,3,3); 
-    if(n.carryTier!==null){ let t=TIERS[n.carryTier]; let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(0,-6,12,12); } 
-    fill(255); textSize(12); text(n.name,0,-40); pop(); 
+
+    // NPCが運んでいるリンゴを画像で表示
+    if(n.carryTier !== null){
+      let t = TIERS[n.carryTier];
+      if(t.img){
+        imageMode(CENTER);
+        image(t.img, 0, -6, 20, 20); // 小さめ表示
+      } else {
+        let rgb = t.rgb;
+        fill(rgb[0], rgb[1], rgb[2]);
+        ellipse(0,-6,12,12);
+      }
+    }
+
+    fill(255); 
+    textSize(12); 
+    text(n.name,0,-40); 
+    pop(); 
   } 
 }
+
 function updateNPCs(){ 
   for(let n of npcs){ 
     if(n.state==='idle'){ 
@@ -217,6 +236,7 @@ function updateNPCs(){
     } 
   } 
 }
+
 function moveToward(e,tx,ty){ let ang=atan2(ty-e.y,tx-e.x); e.x+=cos(ang)*e.speed; e.y+=sin(ang)*e.speed; }
 function updatePhysics(){ 
   for(let a of apples){ 
