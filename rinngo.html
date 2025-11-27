@@ -348,16 +348,19 @@ function updateNPCs(){
         n.carryTier=a.tier;
         a.state='picked';
 
-        // --- ここを追加：収穫カウント＆実績判定（2の倍数で実績表示） ---
-        totalCollected++;
-        if (totalCollected % 2 === 0) {
-          achievementEffects.push({
-            x: a.x,
-            y: a.y - 20,
-            text: `実績 ${totalCollected}個達成！`,
-            life: 90
-          });
-        }
+       // --- ここを置き換え：収穫カウント＆実績判定（2の乗数で実績表示） ---
+totalCollected++;
+
+// 2の乗数判定（1,2,4,8,16,32,64...）
+if ((totalCollected & (totalCollected - 1)) === 0) {
+  achievementEffects.push({
+    x: a.x,
+    y: a.y - 20,
+    text: `実績 ${totalCollected}個達成！`,
+    life: 90
+  });
+}
+
         // --- /追加 ---
 
         n.targetIdx=-1;
