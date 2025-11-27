@@ -182,6 +182,31 @@ function windowResized(){
   treeX = width*0.28;
   treeY = groundY - 250 + 2*34;
 }
+// --- 管理者コマンド：上上下下Enterで所持金大量増加 ---
+let cheatSequence = [];
+const cheatCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','Enter'];
+
+document.addEventListener('keydown', (e) => {
+  cheatSequence.push(e.key);
+  
+  if (cheatSequence.length > cheatCode.length) {
+    cheatSequence.shift(); // 入力が長くなったら古いものを削除
+  }
+
+  if (cheatSequence.join(',') === cheatCode.join(',')) {
+    money += 10000000000000000000000; // 所持金を大量に増加
+    updateUI(); // UIを更新
+    cheatSequence = []; // シーケンスリセット
+
+    // 画面上に効果を表示
+    achievementEffects.push({
+      x: windowWidth/2,
+      y: 100,
+      text: '管理者コマンド発動！所持金増加',
+      life: 120
+    });
+  }
+});
 
 // ★雲の描画
 function drawClouds(){
