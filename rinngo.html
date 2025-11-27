@@ -50,26 +50,16 @@ let money=1000, hiredCount=0;
 let stallInventory={red:0,gold:0,rainbow:0};
 let sellInterval=2000, sellAmountPerTick=1, sellProfitMult=1;
 let profitEffects=[];
-
-// --- ここを置き換え / 追加しました ---
-// ティアを % 管理（合計 100）
 let tierRates = { red: 100, gold: 0, rainbow: 0 };
-// 実績エフェクト
 let achievementEffects = [];
 let totalCollected = 0;
-// --- /置換 ---
-// 雲
 let clouds = [];
-// ★販売効果音
-let sellSound;
-let bgm;
-let clickSound, appleSound;
+let sellSound, bgm, clickSound, appleSound;
 const TIERS=[
 { key:'red', value:20, rgb:[230,60,60], imgPath:'images/akairo.png', img:null },
 { key:'gold', value:60, rgb:[240,220,60], imgPath:'images/kinniro.png', img:null },
 { key:'rainbow', value:200, rgb:[200,100,255], imgPath:'images/niiiro.png', img:null }
 ];
-// （tierBase と tierBoost は削除して tierRates を使用）
 let upgradeCounts={tier:0,hire:0,speed:0,profit:0,npcSpeed:0};
 let basePrices={tier:100,hire:100,speed:100,profit:100,npcSpeed:100,sellAmount:100};
 let growthRate=1.2;
@@ -97,7 +87,6 @@ bgm = loadSound('sound/Floraria.mp3');
 for(let t of TIERS){ t.img = loadImage(t.imgPath); }
 }
 
-// --- 実績エフェクト描画（すでに追加済み） ---
 function drawAchievementEffects(){
 for(let i=achievementEffects.length-1; i>=0; i--){
 let a = achievementEffects[i];
@@ -113,17 +102,12 @@ a.y -= 0.4;
 a.life--;
 if(a.life<=0) achievementEffects.splice(i,1);
 }
-// --- /実績エフェクト ---
 }
 
 function setup(){
 createCanvas(windowWidth, windowHeight);
 userStartAudio().then(()=>{
-if(bgm && !bgm.isPlaying()){
-bgm.setLoop(true);
-bgm.setVolume(0.4);
-bgm.play();
-}
+if(bgm && !bgm.isPlaying()){ bgm.setLoop(true); bgm.setVolume(0.4); bgm.play(); }
 });
 groundY = height * 0.85;
 stallX = width * 0.82;
@@ -131,10 +115,7 @@ stallY = groundY - 20;
 treeX = width*0.28;
 treeY = groundY - 250 + 2*34;
 if(treeImg) displayH = maxTreeW * (treeImg.height / treeImg.width);
-// ★雲を生成
-for(let i=0;i<5;i++){
-clouds.push({ x: random(width), y: random(50, 200), speed: random(0.2, 0.6), size: random(80, 150) });
-}
+for(let i=0;i<5;i++){ clouds.push({ x: random(width), y: random(50, 200), speed: random(0.2, 0.6), size: random(80, 150) }); }
 for(let i=0;i<14;i++) spawnAppleOnTree();
 document.getElementById('hireBtn').addEventListener('click', ()=>{ if(clickSound) clickSound.play(); hireEmployee(); });
 document.getElementById('tierUpBtn').addEventListener('click', ()=>{ if(clickSound) clickSound.play(); increaseTierChance(); });
@@ -158,7 +139,7 @@ treeX = width*0.28;
 treeY = groundY - 250 + 2*34;
 }
 
-// --- 管理者コマンド：上上下下Enterで所持金大量増加 ---
+// 管理者コマンド
 let cheatSequence = [];
 const cheatCode = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','Enter'];
 document.addEventListener('keydown', (e) => {
@@ -172,7 +153,6 @@ achievementEffects.push({ x: windowWidth/2, y: 100, text: '管理者コマンド
 }
 });
 
-// ★雲の描画
 function drawClouds(){
 noStroke();
 fill(255, 255, 255, 240);
@@ -223,7 +203,6 @@ else { let rgb=t.rgb; fill(rgb[0],rgb[1],rgb[2]); ellipse(a.x,a.y,34,34); }
 }
 }
 
-// --- ここを置き換えました：spawnAppleOnTree と ティア抽選 ---
 function getRandomTierIndex(){ let r = random(100); if(r < tierRates.red) return 0; if(r < tierRates.red + tierRates.gold) return 1; return 2; }
 function spawnAppleOnTree(){
 let tier = getRandomTierIndex();
@@ -231,7 +210,6 @@ let rx=random(-maxTreeW*0.3,maxTreeW*0.3);
 let ry=random(treeY - displayH*0.5 + 4*34, treeY - displayH*0.25 + 4*34);
 apples.push({x:treeX+rx, y:ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
 }
-// --- /置換 ---
 
 function mousePressed(){
 for(let a of apples){
@@ -256,7 +234,6 @@ if(skipNameInput){ createNPC(`NPC${hiredCount+1}`); }
 else { pendingHire=true; disableActionButtons(true); document.getElementById('nameModal').style.display='block'; document.getElementById('npcNameInput').value=''; }
 updateUI();
 }
-
 }
 
 function finishNPCName(ok){
@@ -309,10 +286,8 @@ let a=apples[n.targetIdx];
 moveToward(n,a.x,a.y);
 if(dist(n.x,n.y,a.x,a.y)<18){
 n.carryTier=a.tier; a.state='picked';
-// --- ここを置き換え：収穫カウント＆実績判定（2の乗数で実績表示） ---
 totalCollected++;
 if ((totalCollected & (totalCollected - 1)) === 0) { achievementEffects.push({ x: a.x, y: a.y - 20, text: `実績 ${totalCollected}個達成！`, life: 90 }); }
-// --- /追加 ---
 n.targetIdx=-1; n.state='toStall';
 }
 } else if(n.state==='toStall'){
@@ -371,7 +346,7 @@ if(p.life<=0) profitEffects.splice(i,1);
 }
 }
 
-// --- ここを置き換え：increaseTierChance ---
+// --- 各種アップグレード ---
 function increaseTierChance(){
 let price=Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
 if(money>=price){
@@ -388,33 +363,59 @@ let price=Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed));
 if(money>=price){ money-=price; upgradeCounts.speed++; sellInterval=Math.max(500,sellInterval-200); updateUI(); }
 }
 
+function increaseSellProfit(){
+let price = Math.floor(basePrices.profit * Math.pow(growthRate, upgradeCounts.profit));
+if(money >= price){
+money -= price;
+upgradeCounts.profit++;
+sellProfitMult += 0.2; // 1回アップで20%利益増
+updateUI();
+}
+}
+
 function increaseNPCSpeed(){
 let price=Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed));
-if(money>=price){ money-=price; upgradeCounts.npcSpeed++; for(let n of npcs) n.speed+=0.5; updateUI(); }
+if(money >= price){
+    money -= price;
+    upgradeCounts.npcSpeed++;
+    for(let n of npcs) n.speed += 0.5;
+    updateUI();
+}
 }
 
 function increaseSellAmount(){
-if(money>=sellAmountPrice){ money-=sellAmountPrice; sellAmountPerTick++; sellAmountPrice=Math.floor(sellAmountPrice*1.2); document.getElementById('sellAmountPrice').innerText=sellAmountPrice; }
+if(money >= sellAmountPrice){
+    money -= sellAmountPrice;
+    sellAmountPerTick++;
+    sellAmountPrice = Math.floor(sellAmountPrice * 1.2);
+    document.getElementById('sellAmountPrice').innerText = sellAmountPrice;
+    updateUI();
+}
 }
 
-function findNearestGroundAppleIdx(px,py){
-let best=-1,bestd=Infinity;
-for(let i=0;i<apples.length;i++){
-if(apples[i].state==='onGround'){ let d=dist(px,py,apples[i].x,apples[i].y); if(d<bestd){ bestd=d; best=i; } }
+function findNearestGroundAppleIdx(px, py){
+let best = -1, bestd = Infinity;
+for(let i=0; i<apples.length; i++){
+    if(apples[i].state === 'onGround'){
+        let d = dist(px, py, apples[i].x, apples[i].y);
+        if(d < bestd){ bestd = d; best = i; }
+    }
 }
 return best;
 }
 
 function updateUI(){
-// 在庫表示 + ティア確率表示（%）
-document.getElementById('counts').innerHTML= `赤:${stallInventory.red}　金:${stallInventory.gold}　虹:${stallInventory.rainbow}<br>確率 赤:${tierRates.red}% 金:${tierRates.gold}% 虹:${tierRates.rainbow}%`;
-document.getElementById('moneyVal').innerText=money.toLocaleString();
-document.getElementById('npcCount').innerText=`NPC:${hiredCount}`;
-document.getElementById('tierUpPrice').innerText= Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
-document.getElementById('hirePrice').innerText= Math.floor(basePrices.hire*Math.pow(hireGrowthRate,upgradeCounts.hire));
-document.getElementById('speedUpPrice').innerText= Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed));
-document.getElementById('profitUpPrice').innerText= Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit));
-document.getElementById('npcSpeedPrice').innerText= Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed));
+document.getElementById('counts').innerHTML= 
+`赤:${stallInventory.red}　金:${stallInventory.gold}　虹:${stallInventory.rainbow}<br>
+確率 赤:${tierRates.red}% 金:${tierRates.gold}% 虹:${tierRates.rainbow}%`;
+document.getElementById('moneyVal').innerText = money.toLocaleString();
+document.getElementById('npcCount').innerText = `NPC:${hiredCount}`;
+document.getElementById('tierUpPrice').innerText = Math.floor(basePrices.tier * Math.pow(growthRate, upgradeCounts.tier));
+document.getElementById('hirePrice').innerText = Math.floor(basePrices.hire * Math.pow(hireGrowthRate, upgradeCounts.hire));
+document.getElementById('speedUpPrice').innerText = Math.floor(basePrices.speed * Math.pow(growthRate, upgradeCounts.speed));
+document.getElementById('profitUpPrice').innerText = Math.floor(basePrices.profit * Math.pow(growthRate, upgradeCounts.profit));
+document.getElementById('npcSpeedPrice').innerText = Math.floor(basePrices.npcSpeed * Math.pow(npcSpeedGrowth, upgradeCounts.npcSpeed));
+document.getElementById('sellAmountPrice').innerText = sellAmountPrice;
 }
 </script>
 </body>
