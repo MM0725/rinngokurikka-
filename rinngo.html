@@ -53,7 +53,14 @@ let money=1000, hiredCount=0;
 let stallInventory={red:0,gold:0,rainbow:0};
 let sellInterval=2000, sellAmountPerTick=1, sellProfitMult=1;
 let profitEffects=[];
-let tierBoost=0;
+
+// --- ここを置き換え / 追加しました ---
+// ティアを % 管理（合計 100）
+let tierRates = { red: 100, gold: 0, rainbow: 0 };
+// 実績エフェクト
+let achievementEffects = [];
+let totalCollected = 0;
+// --- /置換 ---
 
 // 雲
 let clouds = [];
@@ -69,7 +76,7 @@ const TIERS=[
   { key:'gold', value:60, rgb:[240,220,60], imgPath:'images/kinniro.png', img:null },
   { key:'rainbow', value:200, rgb:[200,100,255], imgPath:'images/niiiro.png', img:null }
 ];
-let tierBase={red:1.0,gold:0,rainbow:0};
+// （tierBase と tierBoost は削除して tierRates を使用）
 
 let upgradeCounts={tier:0,hire:0,speed:0,profit:0,npcSpeed:0};
 let basePrices={tier:100,hire:100,speed:100,profit:100,npcSpeed:100,sellAmount:100};
@@ -102,20 +109,26 @@ function preload(){
 
   for(let t of TIERS){ t.img = loadImage(t.imgPath); }
 }
+
+// --- 実績エフェクト描画（すでに追加済み） ---
 function drawAchievementEffects(){
   for(let i=achievementEffects.length-1; i>=0; i--){
     let a = achievementEffects[i];
+    push();
+    textAlign(CENTER);
     fill(255,200,0);
     stroke(0);
     strokeWeight(2);
     textSize(26);
     text(a.text, a.x, a.y);
+    pop();
     a.y -= 0.4;
     a.life--;
     if(a.life<=0) achievementEffects.splice(i,1);
   }
 }
-  
+// --- /実績エフェクト ---
+
 function setup(){
   createCanvas(windowWidth, windowHeight);
 
@@ -200,6 +213,11 @@ function draw(){
   drawApples();
   drawNPCs();
   drawProfitEffects();
+
+  // --- 実績エフェクトを描く（追加） ---
+  drawAchievementEffects();
+  // --- /実績エフェクト ---
+
   updatePhysics();
   updateNPCs();
   updateUI();
@@ -219,17 +237,24 @@ function drawApples(){
   }
 }
 
+// --- ここを置き換えました：spawnAppleOnTree と ティア抽選 ---
+// 新しい確率管理（tierRates %）を使う
+function getRandomTierIndex(){
+  let r = random(100); // 0..100
+  if(r < tierRates.red) return 0;
+  if(r < tierRates.red + tierRates.gold) return 1;
+  return 2;
+}
+
 function spawnAppleOnTree(){
-  let p=random(), tier;
-  if(p<tierBase.red) tier=0;
-  else if(p<tierBase.red+tierBase.gold) tier=1;
-  else tier=2;
+  let tier = getRandomTierIndex();
 
   let rx=random(-maxTreeW*0.3,maxTreeW*0.3);
   let ry=random(treeY - displayH*0.5 + 4*34, treeY - displayH*0.25 + 4*34);
 
   apples.push({x:treeX+rx, y:ry, tier:tier, state:'onTree', vy:0, vx:0, bounced:false});
 }
+// --- /置換 ---
 
 function mousePressed(){
   for(let a of apples){
@@ -322,6 +347,19 @@ function updateNPCs(){
       if(dist(n.x,n.y,a.x,a.y)<18){
         n.carryTier=a.tier;
         a.state='picked';
+
+        // --- ここを追加：収穫カウント＆実績判定（2の倍数で実績表示） ---
+        totalCollected++;
+        if (totalCollected % 2 === 0) {
+          achievementEffects.push({
+            x: a.x,
+            y: a.y - 20,
+            text: `実績 ${totalCollected}個達成！`,
+            life: 90
+          });
+        }
+        // --- /追加 ---
+
         n.targetIdx=-1;
         n.state='toStall';
       }
@@ -397,20 +435,30 @@ function drawProfitEffects(){
   }
 }
 
+// --- ここを置き換え：increaseTierChance ---
+// 強化ボタンを押すごとに：金+1%/赤-1%（金<100）
+// 金==100 になったら：虹+1%/金-1%
 function increaseTierChance(){
   let price=Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
   if(money>=price){
     money-=price;
     upgradeCounts.tier++;
 
-    tierBoost+=0.01;
-    tierBase.red=Math.max(0.6,1-tierBoost*2);
-    tierBase.gold=Math.min(0.35,tierBoost);
-    tierBase.rainbow=Math.min(0.1,tierBoost);
+    // まだ金が100%未満なら赤->金へ
+    if(tierRates.gold < 100){
+      tierRates.gold = Math.min(100, tierRates.gold + 1);
+      tierRates.red  = Math.max(0, tierRates.red - 1);
+    }
+    // 金が100%まで到達したら金->虹へ
+    else if(tierRates.rainbow < 100){
+      tierRates.rainbow = Math.min(100, tierRates.rainbow + 1);
+      tierRates.gold    = Math.max(0, tierRates.gold - 1);
+    }
 
     updateUI();
   }
 }
+// --- /置換 ---
 
 function decreaseSellInterval(){
   let price=Math.floor(basePrices.speed*Math.pow(growthRate,upgradeCounts.speed));
@@ -463,8 +511,11 @@ function findNearestGroundAppleIdx(px,py){
 }
 
 function updateUI(){
-  document.getElementById('counts').innerText=
-    `赤:${stallInventory.red}　金:${stallInventory.gold}　虹:${stallInventory.rainbow}`;
+  // 在庫表示 + ティア確率表示（%）
+  document.getElementById('counts').innerHTML=
+    `赤:${stallInventory.red}　金:${stallInventory.gold}　虹:${stallInventory.rainbow}`
+    +`<br>確率 赤:${tierRates.red}% 金:${tierRates.gold}% 虹:${tierRates.rainbow}%`;
+
   document.getElementById('moneyVal').innerText=money.toLocaleString();
   document.getElementById('npcCount').innerText=`NPC:${hiredCount}`;
 
