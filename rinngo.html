@@ -498,15 +498,27 @@ function decreaseSellInterval(){
   }
 }
 
-function increaseSellProfit(){
-  let price=Math.floor(basePrices.profit*Math.pow(growthRate,upgradeCounts.profit));
+function increaseTierChance(){
+  let price=Math.floor(basePrices.tier*Math.pow(growthRate,upgradeCounts.tier));
   if(money>=price){
     money-=price;
-    upgradeCounts.profit++;
-    sellProfitMult*=1.2;
+    upgradeCounts.tier++;
+
+    // まだ金が100%未満なら赤→金
+    if(tierRates.gold < 100){
+      tierRates.gold = Math.min(100, tierRates.gold + 1);
+      tierRates.red  = Math.max(0, tierRates.red - 1);
+    }
+    // 金100%到達後は金→虹
+    else if(tierRates.rainbow < 100){
+      tierRates.rainbow = Math.min(100, tierRates.rainbow + 1);
+      tierRates.gold    = Math.max(0, tierRates.gold - 1);
+    }
+
     updateUI();
   }
 }
+
 
 function increaseNPCSpeed(){
   let price=Math.floor(basePrices.npcSpeed*Math.pow(npcSpeedGrowth,upgradeCounts.npcSpeed));
